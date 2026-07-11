@@ -24,6 +24,8 @@ export const ja: Dictionary = {
     deleteWorldviewDescription:
       "キャラクターと画像がすべて削除され、元に戻せません。",
     empty: "まだ世界観がありません — 新しい世界観から始めましょう。",
+    prereleaseNote: "プレビュー版 · 機能や画面が変わることがあります",
+    contactLabel: "お問い合わせ",
   },
   world: {
     eraPrefix: "年代",

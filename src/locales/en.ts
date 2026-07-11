@@ -24,6 +24,8 @@ export const en: Dictionary = {
     deleteWorldviewDescription:
       "All characters and images will be deleted. This cannot be undone.",
     empty: "No worlds yet — start with a new world.",
+    prereleaseNote: "Preview version · features and screens may change",
+    contactLabel: "Contact",
   },
   world: {
     eraPrefix: "Era",

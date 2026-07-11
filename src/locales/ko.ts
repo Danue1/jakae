@@ -24,6 +24,8 @@ export const ko: Dictionary = {
     deleteWorldviewDescription:
       "캐릭터와 이미지가 모두 삭제되며 되돌릴 수 없습니다.",
     empty: "아직 세계관이 없습니다 — 새 세계관으로 시작하세요.",
+    prereleaseNote: "미리보기 버전이에요 · 기능과 화면이 바뀔 수 있어요",
+    contactLabel: "문의",
   },
   world: {
     eraPrefix: "년도",

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { SiteFooter } from "@/components/SiteFooter";
 import { getDictionary, isLocale, LOCALES } from "@/locales";
 import { LocaleProvider } from "@/react/localeContext";
 
@@ -33,5 +34,10 @@ export default async function LocaleLayout({
 }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return <LocaleProvider locale={locale}>{children}</LocaleProvider>;
+  return (
+    <LocaleProvider locale={locale}>
+      {children}
+      <SiteFooter />
+    </LocaleProvider>
+  );
 }

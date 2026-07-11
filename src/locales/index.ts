@@ -55,6 +55,8 @@ export interface Dictionary {
     deleteWorldviewTitle: (name: string) => string;
     deleteWorldviewDescription: string;
     empty: string;
+    prereleaseNote: string;
+    contactLabel: string;
   };
   world: {
     eraPrefix: string;
