@@ -1,9 +1,9 @@
 "use client";
 
-import { EllipsisVertical, FolderInput, Plus } from "lucide-react";
+import { EllipsisVertical, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar } from "@/components/Avatar";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
@@ -23,13 +23,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { worldviewDisplayName, type Worldview } from "@/core/model";
-import { WorldFileError } from "@/core/worldFormat";
 import { worldHref } from "@/react/links";
 import { useLocale } from "@/react/localeContext";
 import {
   createAndSaveWorldview,
   deleteWorldview,
-  importWorldFile,
   listWorldviewEntries,
   type WorldviewListEntry,
 } from "@/store/library";
@@ -40,7 +38,6 @@ export default function LibraryPage() {
   const router = useRouter();
   const [entries, setEntries] = useState<WorldviewListEntry[] | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Worldview | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void (async () => {
@@ -64,23 +61,6 @@ export default function LibraryPage() {
       locale,
     );
     router.push(worldHref(locale, worldview.id));
-  };
-
-  const handleImportFile = async (file: File) => {
-    try {
-      const worldviewId = await importWorldFile(file);
-      router.push(worldHref(locale, worldviewId));
-    } catch (error) {
-      if (error instanceof WorldFileError) {
-        alert(
-          error.code === "newer-version"
-            ? dictionary.library.importFailedNewerVersion
-            : dictionary.library.importFailedInvalid,
-        );
-        return;
-      }
-      alert(dictionary.library.importFailed);
-    }
   };
 
   const confirmDelete = async () => {
@@ -110,25 +90,6 @@ export default function LibraryPage() {
           <Plus size={17} aria-hidden="true" />
           {dictionary.library.newWorldview}
         </Button>
-        <Button
-          variant="subtle"
-          className="flex-1 bg-hover py-2.5 sm:flex-none sm:px-5"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <FolderInput size={17} aria-hidden="true" />
-          {dictionary.library.importFile}
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".world,.zip"
-          hidden
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void handleImportFile(file);
-            event.target.value = "";
-          }}
-        />
       </div>
 
       {entries && entries.length === 0 && (

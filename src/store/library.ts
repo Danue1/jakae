@@ -6,7 +6,6 @@ import {
   type WorldviewSeedDefaults,
 } from "../core/model";
 import { worldviewPreviewCharacters } from "../core/selectors";
-import { decodeWorldFile } from "../core/worldFormat";
 
 export interface WorldviewListEntry {
   worldview: Worldview;
@@ -42,19 +41,4 @@ export async function createAndSaveWorldview(
 
 export function deleteWorldview(worldviewId: string): Promise<void> {
   return indexedDbStorage.deleteWorldviewCascade(worldviewId);
-}
-
-export async function importWorldFile(file: File): Promise<string> {
-  const content = decodeWorldFile(new Uint8Array(await file.arrayBuffer()));
-  for (const image of content.images) {
-    await indexedDbStorage.putImage(
-      image.id,
-      new Blob([new Uint8Array(image.bytes)], { type: image.type }),
-    );
-  }
-  await indexedDbStorage.writeBatch({
-    worldview: content.worldview,
-    characters: content.characters,
-  });
-  return content.worldview.id;
 }

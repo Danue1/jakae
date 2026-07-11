@@ -51,10 +51,6 @@ export interface Dictionary {
     title: string;
     newWorldview: string;
     newWorldviewName: string;
-    importFile: string;
-    importFailed: string;
-    importFailedInvalid: string;
-    importFailedNewerVersion: string;
     modified: (dateText: string) => string;
     deleteWorldviewTitle: (name: string) => string;
     deleteWorldviewDescription: string;

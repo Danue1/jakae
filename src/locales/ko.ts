@@ -19,10 +19,6 @@ export const ko: Dictionary = {
     title: "서재",
     newWorldview: "새 세계관",
     newWorldviewName: "새 세계관",
-    importFile: "파일 가져오기",
-    importFailed: "가져오지 못했습니다.",
-    importFailedInvalid: "세계관 파일(.world)이 아니에요.",
-    importFailedNewerVersion: "더 새로운 버전의 앱에서 만든 파일이에요.",
     modified: (dateText) => `${dateText} 수정`,
     deleteWorldviewTitle: (name) => `"${name}" 세계관 삭제`,
     deleteWorldviewDescription:

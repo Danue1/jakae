@@ -19,10 +19,6 @@ export const ja: Dictionary = {
     title: "書斎",
     newWorldview: "新しい世界観",
     newWorldviewName: "新しい世界観",
-    importFile: "ファイルを読み込む",
-    importFailed: "読み込めませんでした。",
-    importFailedInvalid: "世界観ファイル（.world）ではありません。",
-    importFailedNewerVersion: "より新しいバージョンのアプリで作られたファイルです。",
     modified: (dateText) => `${dateText} 更新`,
     deleteWorldviewTitle: (name) => `「${name}」を削除`,
     deleteWorldviewDescription:

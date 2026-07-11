@@ -19,10 +19,6 @@ export const en: Dictionary = {
     title: "Library",
     newWorldview: "New world",
     newWorldviewName: "New world",
-    importFile: "Import file",
-    importFailed: "Could not import the file.",
-    importFailedInvalid: "This is not a world file (.world).",
-    importFailedNewerVersion: "This file was made by a newer version of the app.",
     modified: (dateText) => `Edited ${dateText}`,
     deleteWorldviewTitle: (name) => `Delete "${name}"`,
     deleteWorldviewDescription:
