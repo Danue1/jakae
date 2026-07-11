@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/* T1 여백 테마 토큰 — 이 밖의 색·그림자·임의값 사용 금지 */
+/* 가독성 기준: 보조 텍스트(muted)도 명도 대비 4.5:1 이상, 최소 글자 13px */
+@theme {
+  --color-ground: #ffffff;
+  --color-ink: #1c2128;
+  --color-muted: #5e6b7c;
+  --color-line: #dfe4ec;
+  --color-hover: #f5f7fa;
+  --color-accent: #3e6db5;
+  --color-accent-soft: #e7eef9;
+  --color-accent-foreground: #ffffff;
+  --color-star: #d0952f;
+  --color-danger: #b4533a;
+  --radius-card: 10px;
+  --grid-template-columns-detail: 300px 1fr;
+  --shadow-popover: 0 10px 28px rgb(10 20 40 / 0.18);
+  --font-sans: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo",
+    "Noto Sans KR", "Malgun Gothic", -apple-system, sans-serif;
+
+  /* 텍스트 스케일 상향 — 유틸리티 전체에 일괄 적용 (xs 13 / sm 15 / base 17) */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.55;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.55;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    line-height: 1.55;
+    /* 한국어·일본어 단어 중간 줄바꿈 방지 — 넘칠 때만 단어 단위로 감싼다 */
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    @apply bg-ground font-sans text-sm text-ink;
+  }
+  button {
+    cursor: pointer;
+  }
+  :focus-visible {
+    @apply rounded outline-2 outline-accent;
+    outline-offset: 2px;
+  }
+}
