@@ -6,18 +6,6 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
-    },
-    {
-      "name": "pages-simulation",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": [
-        "-m",
-        "http.server",
-        "8080",
-        "-d",
-        "/private/tmp/claude-501/-Users-danuel-Documents-external-note/9a5e76d9-1b9f-447a-b746-0c1d3239acd0/scratchpad/pages-root"
-      ],
-      "port": 8080
     }
   ]
 }
