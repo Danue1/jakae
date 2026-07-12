@@ -28,6 +28,8 @@ let databasePromise: Promise<IDBPDatabase<DatabaseSchema>> | null = null;
 
 function database(): Promise<IDBPDatabase<DatabaseSchema>> {
   if (!databasePromise) {
+    // DB 이름은 리브랜딩(Sharpen) 후에도 유지한다 — IndexedDB는 개명이 불가해,
+    // 바꾸면 기존 사용자의 세계관·캐릭터·이미지 데이터가 새 DB로 이어지지 못하고 유실된다.
     databasePromise = openDB<DatabaseSchema>("character-organizer", 1, {
       upgrade(upgradeDatabase) {
         upgradeDatabase.createObjectStore("worldviews", { keyPath: "id" });

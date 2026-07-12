@@ -1,7 +1,7 @@
 export const en = {
-  appName: "Character Organizer",
+  appName: "Sharpen",
   metaDescription:
-    "Organize original characters by world — no server, stored only in your browser.",
+    "Organize your characters, races, places, and lore — one place for your creative world, with no server, stored only in your browser.",
   common: {
     back: "Back",
     cancel: "Cancel",
@@ -285,8 +285,8 @@ export const en = {
     goHome: "Go to library",
   },
   about: {
-    title: "About Character Organizer",
-    p1: "A tool for organizing original characters by world. It runs without a server — everything is stored only in the browser you are using now.",
+    title: "About Sharpen",
+    p1: "A tool for organizing your creative world in one place — characters, races, places, items, and lore. It runs without a server — everything is stored only in the browser you are using now.",
     p2: "Links do not carry data. On another device or browser, a fresh library starts.",
     p3: "Profile fields, card background colors, and character palettes are all yours to define.",
     back: "Go to library",
@@ -294,7 +294,7 @@ export const en = {
   updates: {
     navLabel: "Update notes",
     pageTitle: "Update notes",
-    pageSubtitle: "What's been added to Character Organizer, newest first.",
+    pageSubtitle: "What's been added to Sharpen, newest first.",
     popoverTitle: "What's new",
     currentVersion: "Current {version}",
     latest: "Latest",
@@ -304,7 +304,7 @@ export const en = {
     kindFix: "Fixed",
     entryText: {
       "v0-1-launch":
-        "Character Organizer preview is here. Organize your characters by world.",
+        "Sharpen preview is here. Organize your creative world in one place.",
       "v0-1-customization":
         "Define your own profile fields, card background colors, and character palettes.",
       "v0-1-multilingual": "Korean, English, and Japanese are supported.",

@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import Link from "next/link";
+import { BrandMark } from "@/components/BrandMark";
 import { DEFAULT_LOCALE, isLocale } from "@/locales";
 import { libraryHref } from "@/react/links";
 
@@ -16,7 +17,8 @@ export default async function AboutPage({
 
   return (
     <article className="mx-auto max-w-page px-5 py-14">
-      <h1 className="text-2xl font-extrabold tracking-tight">
+      <h1 className="flex items-center gap-2.5 text-2xl font-extrabold tracking-tight">
+        <BrandMark className="size-7 shrink-0 text-accent" />
         {t("about.title")}
       </h1>
       <div className="mt-4 flex flex-col gap-3 text-sm leading-relaxed">

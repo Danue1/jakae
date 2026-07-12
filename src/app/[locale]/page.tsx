@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/Avatar";
+import { BrandMark } from "@/components/BrandMark";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { UpdatesBell } from "@/components/UpdatesBell";
 import {
@@ -73,6 +74,12 @@ export default function LibraryPage() {
 
   return (
     <div className="mx-auto max-w-page px-5 pb-24 pt-10 sm:pt-14">
+      <div className="mb-4 flex items-center gap-2 text-accent">
+        <BrandMark className="size-6" />
+        <span className="text-base font-extrabold tracking-tight text-ink">
+          {t("appName")}
+        </span>
+      </div>
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-extrabold tracking-tight">
           {t("library.title")}

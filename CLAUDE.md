@@ -1,6 +1,6 @@
-# character-organizer
+# Sharpen
 
-자캐(캐릭터) 정리 서비스. GitHub Pages 스탠드얼론 웹(모바일·태블릿·데스크탑 해상도), T1 여백 테마, 다국어(ko·en·ja).
+창작 세계관 설정 정리 서비스(캐릭터·종족·장소·아이템·용어·연표). 자캐 정리에서 출발했으나 창작 설정 전반으로 확장. GitHub Pages 스탠드얼론 웹(모바일·태블릿·데스크탑 해상도), T1 여백 테마, 다국어(ko·en·ja). 저장소 식별자(IndexedDB `character-organizer`·localStorage `character-organizer.*`)는 데이터 연속성을 위해 리브랜딩 후에도 유지.
 
 ## 계층 규칙 (단방향: UI → store → core → ports)
 

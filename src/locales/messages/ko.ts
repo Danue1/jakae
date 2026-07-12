@@ -1,7 +1,7 @@
 export const ko = {
-  appName: "캐릭터정리",
+  appName: "Sharpen",
   metaDescription:
-    "캐릭터를 세계관 단위로 정리하는 도구 — 서버 없이, 브라우저에만 저장됩니다.",
+    "캐릭터·종족·장소·설정까지, 창작 세계관을 한곳에 정리하는 도구 — 서버 없이, 브라우저에만 저장됩니다.",
   common: {
     back: "뒤로",
     cancel: "취소",
@@ -281,8 +281,8 @@ export const ko = {
     goHome: "서재로 가기",
   },
   about: {
-    title: "캐릭터정리 소개",
-    p1: "캐릭터를 세계관 단위로 정리하는 도구입니다. 서버 없이 동작하며, 모든 데이터는 지금 쓰고 있는 브라우저에만 저장됩니다.",
+    title: "Sharpen 소개",
+    p1: "캐릭터·종족·장소·아이템·용어까지, 창작 세계관의 설정을 한곳에 정리하는 도구입니다. 서버 없이 동작하며, 모든 데이터는 지금 쓰고 있는 브라우저에만 저장됩니다.",
     p2: "링크는 데이터를 담지 않아요. 다른 기기나 브라우저에서는 각자의 서재가 새로 시작됩니다.",
     p3: "프로필 필드·카드 배경색·캐릭터 색상까지 모두 사용자가 정할 수 있습니다.",
     back: "서재로 가기",
@@ -290,7 +290,7 @@ export const ko = {
   updates: {
     navLabel: "업데이트 노트",
     pageTitle: "업데이트 노트",
-    pageSubtitle: "캐릭터정리에 더해진 것들을 최신순으로 기록합니다.",
+    pageSubtitle: "Sharpen에 더해진 것들을 최신순으로 기록합니다.",
     popoverTitle: "새 소식",
     currentVersion: "현재 {version}",
     latest: "최신",
@@ -300,7 +300,7 @@ export const ko = {
     kindFix: "수정",
     entryText: {
       "v0-1-launch":
-        "캐릭터정리 미리보기를 공개했어요. 캐릭터를 세계관 단위로 정리해 보세요.",
+        "Sharpen 미리보기를 공개했어요. 세계관 설정을 한곳에 정리해 보세요.",
       "v0-1-customization":
         "프로필 필드·카드 배경색·캐릭터 색상을 직접 정할 수 있어요.",
       "v0-1-multilingual": "한국어·English·日本語를 지원해요.",
