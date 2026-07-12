@@ -193,6 +193,8 @@ export interface Worldview {
   events: TimelineEvent[];
   // 엔티티 간 참조(관계)의 독립 컬렉션 — 어떤 엔티티든 출발점·대상이 될 수 있다.
   references: Reference[];
+  // 상세 화면의 항목 순서 — 레이아웃 그룹(layoutId) → 항목 키 배열. 없으면 기본 순서(detailLayout.ts).
+  detailOrders: Record<string, string[]>;
   createdAt: number;
   modifiedAt: number;
 }
@@ -278,6 +280,7 @@ export function createWorldview(
     chapters: [],
     events: [],
     references: [],
+    detailOrders: {},
     createdAt: timestamp,
     modifiedAt: timestamp,
   };

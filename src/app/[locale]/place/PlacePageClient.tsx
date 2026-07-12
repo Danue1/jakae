@@ -3,7 +3,8 @@
 import { ChevronLeft, ChevronRight, MapPin, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { DetailItem } from "@/components/DetailItem";
 import { LocaleTabs } from "@/components/LocaleTabs";
 import {
   EntityCard,
@@ -45,6 +46,7 @@ import {
   placeDisplayName,
   type Place,
 } from "@/core/model";
+import { DETAIL_LAYOUTS, orderedDetailKeys } from "@/core/detailLayout";
 import {
   selectChildPlaces,
   selectPlaceEvents,
@@ -117,6 +119,90 @@ export function PlacePageClient() {
       (candidate) => candidate.id !== place.id,
     );
 
+    const fieldRowClass = "flex items-center gap-2 border-b border-line py-1.5";
+    const fieldLabelClass = "w-20 shrink-0 text-sm text-muted";
+    const detailItems: Record<string, ReactNode> = {
+      kind: (
+        <div className={fieldRowClass}>
+          <span className={fieldLabelClass}>{t("place.kindLabel")}</span>
+          <Input
+            placeholder={t("settings.placeKindPlaceholder")}
+            value={place.kind}
+            onChange={(event) =>
+              dispatchCommand({
+                type: "set-place-kind",
+                placeId: place.id,
+                kind: event.target.value,
+              })
+            }
+          />
+        </div>
+      ),
+      parent: (
+        <div className={fieldRowClass}>
+          <span className={fieldLabelClass}>
+            {t("settings.placeParentLabel")}
+          </span>
+          <Select
+            value={place.parentId ?? NO_PARENT}
+            onValueChange={(value) =>
+              dispatchCommand({
+                type: "set-place-parent",
+                placeId: place.id,
+                parentId: value === NO_PARENT ? null : value,
+              })
+            }
+          >
+            <SelectTrigger className="bg-hover">
+              <SelectValue placeholder={t("settings.placeParentNone")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_PARENT}>
+                {t("settings.placeParentNone")}
+              </SelectItem>
+              {parentCandidates.map((candidate) => (
+                <SelectItem key={candidate.id} value={candidate.id}>
+                  {placeDisplayName(candidate, locale) || "-"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ),
+      description: (
+        <>
+          <SectionCaption>{t("place.descriptionLabel")}</SectionCaption>
+          <Textarea
+            className="min-h-28"
+            placeholder={t("settings.placeDescriptionPlaceholder")}
+            value={place.description}
+            onChange={(event) =>
+              dispatchCommand({
+                type: "set-place-description",
+                placeId: place.id,
+                description: event.target.value,
+              })
+            }
+          />
+        </>
+      ),
+      references: (
+        <>
+          <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
+          <References
+            worldview={worldview}
+            characters={characters}
+            kind="place"
+            id={place.id}
+          />
+        </>
+      ),
+    };
+    const orderedKeys = orderedDetailKeys(
+      DETAIL_LAYOUTS.place,
+      worldview.detailOrders.place,
+    );
+
     return (
       <WorldShell active="places" worldviewId={worldview.id}>
       <div className="mx-auto max-w-page px-4 pb-24 pt-5 sm:px-6">
@@ -168,67 +254,20 @@ export function PlacePageClient() {
           />
         </div>
 
-        <div className="mt-4 flex items-center gap-2 border-b border-line py-1.5">
-          <span className="w-20 shrink-0 text-sm text-muted">
-            {t("place.kindLabel")}
-          </span>
-          <Input
-            placeholder={t("settings.placeKindPlaceholder")}
-            value={place.kind}
-            onChange={(event) =>
-              dispatchCommand({
-                type: "set-place-kind",
-                placeId: place.id,
-                kind: event.target.value,
-              })
-            }
-          />
+        <div className="mt-4">
+          {orderedKeys.map((key, index) => (
+            <DetailItem
+              key={key}
+              className="mt-4 first:mt-0"
+              layoutId="place"
+              itemKey={key}
+              index={index}
+              total={orderedKeys.length}
+            >
+              {detailItems[key]}
+            </DetailItem>
+          ))}
         </div>
-        <div className="flex items-center gap-2 border-b border-line py-1.5">
-          <span className="w-20 shrink-0 text-sm text-muted">
-            {t("settings.placeParentLabel")}
-          </span>
-          <Select
-            value={place.parentId ?? NO_PARENT}
-            onValueChange={(value) =>
-              dispatchCommand({
-                type: "set-place-parent",
-                placeId: place.id,
-                parentId: value === NO_PARENT ? null : value,
-              })
-            }
-          >
-            <SelectTrigger className="bg-hover">
-              <SelectValue placeholder={t("settings.placeParentNone")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NO_PARENT}>
-                {t("settings.placeParentNone")}
-              </SelectItem>
-              {parentCandidates.map((candidate) => (
-                <SelectItem key={candidate.id} value={candidate.id}>
-                  {placeDisplayName(candidate, locale) || "-"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <section className="mt-6">
-          <SectionCaption>{t("place.descriptionLabel")}</SectionCaption>
-          <Textarea
-            className="min-h-28"
-            placeholder={t("settings.placeDescriptionPlaceholder")}
-            value={place.description}
-            onChange={(event) =>
-              dispatchCommand({
-                type: "set-place-description",
-                placeId: place.id,
-                description: event.target.value,
-              })
-            }
-          />
-        </section>
 
         {childPlaces.length > 0 && (
           <section className="mt-6">
@@ -279,16 +318,6 @@ export function PlacePageClient() {
             </div>
           </section>
         )}
-
-        <section className="mt-6">
-          <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
-          <References
-            worldview={worldview}
-            characters={characters}
-            kind="place"
-            id={place.id}
-          />
-        </section>
 
         <section className="mt-8">
           <Button

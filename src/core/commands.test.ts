@@ -426,4 +426,84 @@ describe("applyCommand", () => {
     const undone = applyCommand(applied.state, applied.inverse, 3000);
     expect(undone.state.characters[0]?.deletedAt).toBeNull();
   });
+
+  it("reorder-detail-item은 기본 순서에서 항목을 옮기고 역커맨드로 복원된다", () => {
+    const { state } = buildState();
+    expect(state.worldview.detailOrders.event).toBeUndefined();
+
+    // 기본 event 순서: when, chapter, owner, place, description, participants, references
+    const applied = applyCommand(
+      state,
+      {
+        type: "reorder-detail-item",
+        layoutId: "event",
+        itemKey: "description",
+        targetIndex: 0,
+      },
+      2000,
+    );
+    expect(applied.state.worldview.detailOrders.event).toEqual([
+      "description",
+      "when",
+      "chapter",
+      "owner",
+      "place",
+      "participants",
+      "references",
+    ]);
+
+    const undone = applyCommand(applied.state, applied.inverse, 3000);
+    expect(undone.state.worldview.detailOrders.event).toEqual([
+      "when",
+      "chapter",
+      "owner",
+      "place",
+      "description",
+      "participants",
+      "references",
+    ]);
+  });
+
+  it("reorder-detail-item은 이미 저장된 순서 위에서 다시 정렬한다", () => {
+    const { state } = buildState();
+    state.worldview.detailOrders = {
+      race: ["traits", "symbol", "parent"],
+    };
+    const applied = applyCommand(
+      state,
+      {
+        type: "reorder-detail-item",
+        layoutId: "race",
+        itemKey: "traits",
+        targetIndex: 1,
+      },
+      2000,
+    );
+    // 저장값(유효 키)이 앞에 오고 빠진 기본 키가 뒤에 붙은 뒤 traits가 index 1로 이동한다.
+    expect(applied.state.worldview.detailOrders.race?.[0]).toBe("symbol");
+    expect(applied.state.worldview.detailOrders.race?.[1]).toBe("traits");
+  });
+
+  it("reorder-detail-item은 알 수 없는 레이아웃/항목을 거부한다", () => {
+    const { state } = buildState();
+    expect(() =>
+      applyCommand(
+        state,
+        { type: "reorder-detail-item", layoutId: "nope", itemKey: "x", targetIndex: 0 },
+        2000,
+      ),
+    ).toThrow();
+    expect(() =>
+      applyCommand(
+        state,
+        {
+          type: "reorder-detail-item",
+          layoutId: "event",
+          itemKey: "nope",
+          targetIndex: 0,
+        },
+        2000,
+      ),
+    ).toThrow();
+  });
 });

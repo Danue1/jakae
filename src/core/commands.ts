@@ -17,6 +17,7 @@ import type {
   TimelineEvent,
   Worldview,
 } from "./model";
+import { DETAIL_LAYOUTS, orderedDetailKeys } from "./detailLayout";
 
 export interface WorldviewState {
   worldview: Worldview;
@@ -132,6 +133,12 @@ export type WorldviewCommand =
   | {
       type: "move-field-definition";
       fieldDefinitionId: string;
+      targetIndex: number;
+    }
+  | {
+      type: "reorder-detail-item";
+      layoutId: string;
+      itemKey: string;
       targetIndex: number;
     }
   | { type: "delete-field-definition"; fieldDefinitionId: string }
@@ -1528,6 +1535,44 @@ export function applyCommand(
         inverse: {
           type: "move-field-definition",
           fieldDefinitionId: command.fieldDefinitionId,
+          targetIndex: currentIndex,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "reorder-detail-item": {
+      const defaultKeys = DETAIL_LAYOUTS[command.layoutId];
+      if (!defaultKeys)
+        throw new Error(`존재하지 않는 레이아웃: ${command.layoutId}`);
+      const effective = orderedDetailKeys(
+        defaultKeys,
+        state.worldview.detailOrders[command.layoutId],
+      );
+      const currentIndex = effective.indexOf(command.itemKey);
+      if (currentIndex === -1)
+        throw new Error(`존재하지 않는 항목: ${command.itemKey}`);
+      const withoutItem = effective.filter((key) => key !== command.itemKey);
+      const reordered = insertAt(
+        withoutItem,
+        command.targetIndex,
+        command.itemKey,
+      );
+      return {
+        state: patchWorldview(
+          state,
+          {
+            detailOrders: {
+              ...state.worldview.detailOrders,
+              [command.layoutId]: reordered,
+            },
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "reorder-detail-item",
+          layoutId: command.layoutId,
+          itemKey: command.itemKey,
           targetIndex: currentIndex,
         },
         dirty: { worldview: true },

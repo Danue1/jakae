@@ -3,8 +3,9 @@
 import { ChevronLeft, Dna, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { References } from "@/components/References";
+import { DetailItem } from "@/components/DetailItem";
 import { LocaleTabs } from "@/components/LocaleTabs";
 import {
   EntityCard,
@@ -49,6 +50,7 @@ import {
   selectChildRaces,
   selectRootRaces,
 } from "@/core/selectors";
+import { DETAIL_LAYOUTS, orderedDetailKeys } from "@/core/detailLayout";
 import { LOCALES, type Locale } from "@/locales";
 import { raceHref, raceListHref } from "@/react/links";
 import { cn } from "@/lib/utils";
@@ -289,6 +291,183 @@ export function RacePageClient() {
       return target ? raceDisplayName(target, locale) || "-" : "-";
     };
 
+    const detailItems: Record<string, ReactNode> = {
+      symbol: (
+        <>
+          <SectionCaption>{t("race.symbolLabel")}</SectionCaption>
+          <SymbolColorPicker race={race} />
+        </>
+      ),
+      parent: (
+        <div className="flex items-center gap-2 border-b border-line py-1.5">
+          <span className="w-24 shrink-0 text-sm text-muted">
+            {t("race.parentPlaceholder")}
+          </span>
+          <Select
+            value={race.parentId ?? NO_PARENT}
+            onValueChange={(value) =>
+              dispatchCommand({
+                type: "set-race-parent",
+                raceId: race.id,
+                parentId: value === NO_PARENT ? null : value,
+              })
+            }
+          >
+            <SelectTrigger className="bg-hover">
+              <SelectValue placeholder={t("race.parentNone")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_PARENT}>{t("race.parentNone")}</SelectItem>
+              {parentCandidates.map((candidate) => (
+                <SelectItem key={candidate.id} value={candidate.id}>
+                  {raceDisplayName(candidate, locale) || "-"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ),
+      lifespan: (
+        <AttributeRow
+          race={race}
+          attributeKey="lifespan"
+          label={t("race.lifespanLabel")}
+        />
+      ),
+      height: (
+        <AttributeRow
+          race={race}
+          attributeKey="height"
+          label={t("race.heightLabel")}
+        />
+      ),
+      origin: (
+        <AttributeRow
+          race={race}
+          attributeKey="origin"
+          label={t("race.originLabel")}
+        />
+      ),
+      language: (
+        <AttributeRow
+          race={race}
+          attributeKey="language"
+          label={t("race.languageLabel")}
+        />
+      ),
+      traits: (
+        <>
+          <SectionCaption>{t("race.traitsLabel")}</SectionCaption>
+          <TraitsEditor race={race} />
+        </>
+      ),
+      description: (
+        <>
+          <SectionCaption>{t("race.descriptionLabel")}</SectionCaption>
+          <Textarea
+            className="min-h-28"
+            placeholder={t("race.descriptionPlaceholder")}
+            value={race.description}
+            onChange={(event) =>
+              dispatchCommand({
+                type: "set-race-description",
+                raceId: race.id,
+                description: event.target.value,
+              })
+            }
+          />
+        </>
+      ),
+      references: (
+        <>
+          <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
+          <References
+            worldview={worldview}
+            characters={characters}
+            kind="race"
+            id={race.id}
+          />
+        </>
+      ),
+      relations: (
+        <>
+          <SectionCaption>{t("race.relationsTitle")}</SectionCaption>
+          <div className="flex flex-col gap-2">
+            {race.relations.map((relation, relationIndex) => (
+              <div
+                key={`${relation.targetRaceId}-${relationIndex}`}
+                className="flex items-center gap-2"
+              >
+                <Link
+                  href={raceHref(locale, worldview.id, relation.targetRaceId)}
+                  className="w-28 shrink-0 truncate text-sm font-semibold hover:text-accent"
+                >
+                  {raceName(relation.targetRaceId)}
+                </Link>
+                <Input
+                  placeholder={t("race.relationLabelPlaceholder")}
+                  value={relation.label}
+                  onChange={(event) =>
+                    dispatchCommand({
+                      type: "set-race-relation",
+                      raceId: race.id,
+                      relationIndex,
+                      relation: {
+                        ...relation,
+                        label: event.target.value,
+                      },
+                    })
+                  }
+                />
+                <button
+                  aria-label={`${raceName(relation.targetRaceId)} · ${t("common.delete")}`}
+                  className="rounded p-1 text-muted hover:text-danger"
+                  onClick={() =>
+                    dispatchCommand({
+                      type: "remove-race-relation",
+                      raceId: race.id,
+                      relationIndex,
+                    })
+                  }
+                >
+                  <X size={15} aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+          </div>
+          {relationCandidates.length > 0 && (
+            <div className="mt-3">
+              <Select
+                value=""
+                onValueChange={(targetRaceId) =>
+                  dispatchCommand({
+                    type: "add-race-relation",
+                    raceId: race.id,
+                    relation: { targetRaceId, label: "" },
+                  })
+                }
+              >
+                <SelectTrigger className="bg-hover">
+                  <SelectValue placeholder={t("race.addRelation")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {relationCandidates.map((candidate) => (
+                    <SelectItem key={candidate.id} value={candidate.id}>
+                      {raceDisplayName(candidate, locale) || "-"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </>
+      ),
+    };
+    const orderedKeys = orderedDetailKeys(
+      DETAIL_LAYOUTS.race,
+      worldview.detailOrders.race,
+    );
+
     return (
       <WorldShell active="races" worldviewId={worldview.id}>
         <div className="mx-auto max-w-page px-4 pb-24 pt-5 sm:px-6">
@@ -340,164 +519,20 @@ export function RacePageClient() {
             />
           </div>
 
-          <section className="mt-6">
-            <SectionCaption>{t("race.symbolLabel")}</SectionCaption>
-            <SymbolColorPicker race={race} />
-            <div className="mt-3 flex items-center gap-2 border-b border-line py-1.5">
-              <span className="w-24 shrink-0 text-sm text-muted">
-                {t("race.parentPlaceholder")}
-              </span>
-              <Select
-                value={race.parentId ?? NO_PARENT}
-                onValueChange={(value) =>
-                  dispatchCommand({
-                    type: "set-race-parent",
-                    raceId: race.id,
-                    parentId: value === NO_PARENT ? null : value,
-                  })
-                }
+          <div className="mt-6">
+            {orderedKeys.map((key, index) => (
+              <DetailItem
+                key={key}
+                className="mt-4 first:mt-0"
+                layoutId="race"
+                itemKey={key}
+                index={index}
+                total={orderedKeys.length}
               >
-                <SelectTrigger className="bg-hover">
-                  <SelectValue placeholder={t("race.parentNone")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_PARENT}>{t("race.parentNone")}</SelectItem>
-                  {parentCandidates.map((candidate) => (
-                    <SelectItem key={candidate.id} value={candidate.id}>
-                      {raceDisplayName(candidate, locale) || "-"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </section>
-
-          <section className="mt-6">
-            <SectionCaption>{t("race.attributesLabel")}</SectionCaption>
-            <AttributeRow
-              race={race}
-              attributeKey="lifespan"
-              label={t("race.lifespanLabel")}
-            />
-            <AttributeRow
-              race={race}
-              attributeKey="height"
-              label={t("race.heightLabel")}
-            />
-            <AttributeRow
-              race={race}
-              attributeKey="origin"
-              label={t("race.originLabel")}
-            />
-            <AttributeRow
-              race={race}
-              attributeKey="language"
-              label={t("race.languageLabel")}
-            />
-          </section>
-
-          <section className="mt-6">
-            <SectionCaption>{t("race.traitsLabel")}</SectionCaption>
-            <TraitsEditor race={race} />
-          </section>
-
-          <section className="mt-6">
-            <SectionCaption>{t("race.descriptionLabel")}</SectionCaption>
-            <Textarea
-              className="min-h-28"
-              placeholder={t("race.descriptionPlaceholder")}
-              value={race.description}
-              onChange={(event) =>
-                dispatchCommand({
-                  type: "set-race-description",
-                  raceId: race.id,
-                  description: event.target.value,
-                })
-              }
-            />
-          </section>
-
-          <section className="mt-6">
-            <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
-            <References
-              worldview={worldview}
-              characters={characters}
-              kind="race"
-              id={race.id}
-            />
-          </section>
-
-          <section className="mt-6">
-            <SectionCaption>{t("race.relationsTitle")}</SectionCaption>
-            <div className="flex flex-col gap-2">
-              {race.relations.map((relation, relationIndex) => (
-                <div
-                  key={`${relation.targetRaceId}-${relationIndex}`}
-                  className="flex items-center gap-2"
-                >
-                  <Link
-                    href={raceHref(locale, worldview.id, relation.targetRaceId)}
-                    className="w-28 shrink-0 truncate text-sm font-semibold hover:text-accent"
-                  >
-                    {raceName(relation.targetRaceId)}
-                  </Link>
-                  <Input
-                    placeholder={t("race.relationLabelPlaceholder")}
-                    value={relation.label}
-                    onChange={(event) =>
-                      dispatchCommand({
-                        type: "set-race-relation",
-                        raceId: race.id,
-                        relationIndex,
-                        relation: {
-                          ...relation,
-                          label: event.target.value,
-                        },
-                      })
-                    }
-                  />
-                  <button
-                    aria-label={`${raceName(relation.targetRaceId)} · ${t("common.delete")}`}
-                    className="rounded p-1 text-muted hover:text-danger"
-                    onClick={() =>
-                      dispatchCommand({
-                        type: "remove-race-relation",
-                        raceId: race.id,
-                        relationIndex,
-                      })
-                    }
-                  >
-                    <X size={15} aria-hidden="true" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            {relationCandidates.length > 0 && (
-              <div className="mt-3">
-                <Select
-                  value=""
-                  onValueChange={(targetRaceId) =>
-                    dispatchCommand({
-                      type: "add-race-relation",
-                      raceId: race.id,
-                      relation: { targetRaceId, label: "" },
-                    })
-                  }
-                >
-                  <SelectTrigger className="bg-hover">
-                    <SelectValue placeholder={t("race.addRelation")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {relationCandidates.map((candidate) => (
-                      <SelectItem key={candidate.id} value={candidate.id}>
-                        {raceDisplayName(candidate, locale) || "-"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </section>
+                {detailItems[key]}
+              </DetailItem>
+            ))}
+          </div>
 
           <section className="mt-8">
             <Button

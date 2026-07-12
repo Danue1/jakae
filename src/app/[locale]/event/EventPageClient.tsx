@@ -3,9 +3,10 @@
 import { ChevronLeft, EllipsisVertical } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { EventParticipantEditor } from "@/components/EventParticipantEditor";
 import { References } from "@/components/References";
+import { DetailItem } from "@/components/DetailItem";
 import { LocaleTabs } from "@/components/LocaleTabs";
 import { MissingWorldview } from "@/components/MissingWorldview";
 import { SavedIndicator } from "@/components/SavedIndicator";
@@ -40,6 +41,7 @@ import {
   eventDisplayTitle,
   placeDisplayName,
 } from "@/core/model";
+import { DETAIL_LAYOUTS, orderedDetailKeys } from "@/core/detailLayout";
 import { LOCALES, type Locale } from "@/locales";
 import { characterHref, timelineHref } from "@/react/links";
 import { useLocale, useTranslations } from "next-intl";
@@ -115,6 +117,160 @@ export function EventPageClient() {
     (candidate) => candidate.deletedAt === null,
   );
 
+  const fieldRowClass =
+    "flex items-center gap-2 border-b border-line py-1.5";
+  const fieldLabelClass = "w-20 shrink-0 text-sm text-muted";
+  const detailItems: Record<string, ReactNode> = {
+    when: (
+      <div className={fieldRowClass}>
+        <span className={fieldLabelClass}>{t("event.whenLabel")}</span>
+        <Input
+          placeholder={t("event.whenPlaceholder")}
+          value={event.when}
+          onChange={(changeEvent) =>
+            dispatchCommand({
+              type: "set-event-when",
+              eventId: event.id,
+              when: changeEvent.target.value,
+            })
+          }
+        />
+      </div>
+    ),
+    chapter: (
+      <div className={fieldRowClass}>
+        <span className={fieldLabelClass}>{t("event.chapterLabel")}</span>
+        <Select
+          value={event.chapterId ?? NO_CHAPTER}
+          onValueChange={(value) =>
+            dispatchCommand({
+              type: "set-event-chapter",
+              eventId: event.id,
+              chapterId: value === NO_CHAPTER ? null : value,
+            })
+          }
+        >
+          <SelectTrigger className="bg-hover">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_CHAPTER}>{t("event.chapterNone")}</SelectItem>
+            {worldview.chapters.map((chapter) => (
+              <SelectItem key={chapter.id} value={chapter.id}>
+                {chapterDisplayName(chapter, locale) ||
+                  t("timeline.untitledChapter")}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    ),
+    owner: (
+      <div className={fieldRowClass}>
+        <span className={fieldLabelClass}>{t("event.ownerLabel")}</span>
+        <Select
+          value={event.ownerCharacterId ?? NO_OWNER}
+          onValueChange={(value) =>
+            dispatchCommand({
+              type: "set-event-owner",
+              eventId: event.id,
+              ownerCharacterId: value === NO_OWNER ? null : value,
+            })
+          }
+        >
+          <SelectTrigger className="bg-hover">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_OWNER}>{t("event.ownerNone")}</SelectItem>
+            {ownerCandidates.map((candidate) => (
+              <SelectItem key={candidate.id} value={candidate.id}>
+                {characterDisplayName(candidate, locale) || "-"}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    ),
+    place: (
+      <div className={fieldRowClass}>
+        <span className={fieldLabelClass}>{t("event.placeLabel")}</span>
+        {worldview.places.length > 0 ? (
+          <Select
+            value={event.placeId ?? NO_PLACE}
+            onValueChange={(value) =>
+              dispatchCommand({
+                type: "set-event-place-id",
+                eventId: event.id,
+                placeId: value === NO_PLACE ? null : value,
+              })
+            }
+          >
+            <SelectTrigger className="flex-1 bg-hover">
+              <SelectValue placeholder={t("event.placeSelectNone")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_PLACE}>
+                {t("event.placeSelectNone")}
+              </SelectItem>
+              {worldview.places.map((place) => (
+                <SelectItem key={place.id} value={place.id}>
+                  {placeDisplayName(place, locale) || "-"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className="text-sm text-muted">
+            {t("event.placeSelectNone")}
+          </span>
+        )}
+      </div>
+    ),
+    description: (
+      <>
+        <SectionCaption>{t("event.descriptionLabel")}</SectionCaption>
+        <Textarea
+          className="min-h-40"
+          placeholder={t("event.descriptionPlaceholder")}
+          value={event.description}
+          onChange={(changeEvent) =>
+            dispatchCommand({
+              type: "set-event-description",
+              eventId: event.id,
+              description: changeEvent.target.value,
+            })
+          }
+        />
+      </>
+    ),
+    participants: (
+      <>
+        <SectionCaption>{t("event.participantsLabel")}</SectionCaption>
+        <EventParticipantEditor
+          worldview={worldview}
+          event={event}
+          characters={characters}
+        />
+      </>
+    ),
+    references: (
+      <>
+        <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
+        <References
+          worldview={worldview}
+          characters={characters}
+          kind="event"
+          id={event.id}
+        />
+      </>
+    ),
+  };
+  const orderedKeys = orderedDetailKeys(
+    DETAIL_LAYOUTS.event,
+    worldview.detailOrders.event,
+  );
+
   return (
     <WorldShell active="timeline" worldviewId={worldview.id}>
     <div className="mx-auto max-w-page px-4 pb-24 pt-5 sm:px-6">
@@ -185,150 +341,19 @@ export function EventPageClient() {
       </div>
 
       <div className="mt-5">
-        <div className="flex items-center gap-2 border-b border-line py-1.5">
-          <span className="w-20 shrink-0 text-sm text-muted">
-            {t("event.whenLabel")}
-          </span>
-          <Input
-            placeholder={t("event.whenPlaceholder")}
-            value={event.when}
-            onChange={(changeEvent) =>
-              dispatchCommand({
-                type: "set-event-when",
-                eventId: event.id,
-                when: changeEvent.target.value,
-              })
-            }
-          />
-        </div>
-        <div className="flex items-center gap-2 border-b border-line py-1.5">
-          <span className="w-20 shrink-0 text-sm text-muted">
-            {t("event.chapterLabel")}
-          </span>
-          <Select
-            value={event.chapterId ?? NO_CHAPTER}
-            onValueChange={(value) =>
-              dispatchCommand({
-                type: "set-event-chapter",
-                eventId: event.id,
-                chapterId: value === NO_CHAPTER ? null : value,
-              })
-            }
+        {orderedKeys.map((key, index) => (
+          <DetailItem
+            key={key}
+            className="mt-4 first:mt-0"
+            layoutId="event"
+            itemKey={key}
+            index={index}
+            total={orderedKeys.length}
           >
-            <SelectTrigger className="bg-hover">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NO_CHAPTER}>
-                {t("event.chapterNone")}
-              </SelectItem>
-              {worldview.chapters.map((chapter) => (
-                <SelectItem key={chapter.id} value={chapter.id}>
-                  {chapterDisplayName(chapter, locale) ||
-                    t("timeline.untitledChapter")}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2 border-b border-line py-1.5">
-          <span className="w-20 shrink-0 text-sm text-muted">
-            {t("event.ownerLabel")}
-          </span>
-          <Select
-            value={event.ownerCharacterId ?? NO_OWNER}
-            onValueChange={(value) =>
-              dispatchCommand({
-                type: "set-event-owner",
-                eventId: event.id,
-                ownerCharacterId: value === NO_OWNER ? null : value,
-              })
-            }
-          >
-            <SelectTrigger className="bg-hover">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NO_OWNER}>{t("event.ownerNone")}</SelectItem>
-              {ownerCandidates.map((candidate) => (
-                <SelectItem key={candidate.id} value={candidate.id}>
-                  {characterDisplayName(candidate, locale) || "-"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2 border-b border-line py-1.5">
-          <span className="w-20 shrink-0 text-sm text-muted">
-            {t("event.placeLabel")}
-          </span>
-          {worldview.places.length > 0 ? (
-            <Select
-              value={event.placeId ?? NO_PLACE}
-              onValueChange={(value) =>
-                dispatchCommand({
-                  type: "set-event-place-id",
-                  eventId: event.id,
-                  placeId: value === NO_PLACE ? null : value,
-                })
-              }
-            >
-              <SelectTrigger className="flex-1 bg-hover">
-                <SelectValue placeholder={t("event.placeSelectNone")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_PLACE}>
-                  {t("event.placeSelectNone")}
-                </SelectItem>
-                {worldview.places.map((place) => (
-                  <SelectItem key={place.id} value={place.id}>
-                    {placeDisplayName(place, locale) || "-"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <span className="text-sm text-muted">
-              {t("event.placeSelectNone")}
-            </span>
-          )}
-        </div>
+            {detailItems[key]}
+          </DetailItem>
+        ))}
       </div>
-
-      <section className="mt-6">
-        <SectionCaption>{t("event.descriptionLabel")}</SectionCaption>
-        <Textarea
-          className="min-h-40"
-          placeholder={t("event.descriptionPlaceholder")}
-          value={event.description}
-          onChange={(changeEvent) =>
-            dispatchCommand({
-              type: "set-event-description",
-              eventId: event.id,
-              description: changeEvent.target.value,
-            })
-          }
-        />
-      </section>
-
-      <section className="mt-6">
-        <SectionCaption>{t("event.participantsLabel")}</SectionCaption>
-        <EventParticipantEditor
-          worldview={worldview}
-          event={event}
-          characters={characters}
-        />
-      </section>
-
-      <section className="mt-6">
-        <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
-        <References
-          worldview={worldview}
-          characters={characters}
-          kind="event"
-          id={event.id}
-        />
-      </section>
 
       <AlertDialog
         open={pendingDelete}

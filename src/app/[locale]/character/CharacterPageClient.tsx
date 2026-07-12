@@ -9,8 +9,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { BackgroundPicker } from "@/components/BackgroundPicker";
+import { DetailItem } from "@/components/DetailItem";
 import { CharacterImages } from "@/components/CharacterImages";
 import { CharacterTimeline } from "@/components/CharacterTimeline";
 import { LocaleTabs } from "@/components/LocaleTabs";
@@ -48,6 +49,7 @@ import {
   type Character,
   type FieldDefinition,
 } from "@/core/model";
+import { DETAIL_LAYOUTS, orderedDetailKeys } from "@/core/detailLayout";
 import { LOCALES, type Locale } from "@/locales";
 import { charactersHref, characterHref, settingsHref } from "@/react/links";
 import { useFieldBinding } from "@/react/useFieldBinding";
@@ -337,6 +339,105 @@ export function CharacterPageClient() {
       router.push(characterHref(locale, worldview.id, copiedCharacterId));
   };
 
+  const mainItems: Record<string, ReactNode> = {
+    profile: (
+      <>
+        <div className="flex items-baseline justify-between">
+          <SectionCaption>{t("character.profile")}</SectionCaption>
+          <Link
+            href={settingsHref(locale, worldview.id)}
+            className="flex items-center gap-1 text-xs text-accent"
+          >
+            <SlidersHorizontal size={13} aria-hidden="true" />
+            {t("character.manageFields")}
+          </Link>
+        </div>
+        {worldview.fieldDefinitions.map((fieldDefinition) => (
+          <ProfileFieldRow
+            key={fieldDefinition.id}
+            character={character}
+            fieldDefinition={fieldDefinition}
+            primaryLocale={worldview.primaryLocale}
+            primaryLabel={t("settings.primaryLocaleLabel")}
+          />
+        ))}
+      </>
+    ),
+    palette: (
+      <>
+        <SectionCaption>{t("palette.title")}</SectionCaption>
+        <PaletteEditor target={{ kind: "character", character }} />
+      </>
+    ),
+  };
+  const asideItems: Record<string, ReactNode> = {
+    personality: (
+      <>
+        <SectionCaption>{t("character.personality")}</SectionCaption>
+        <TagEditor character={character} />
+      </>
+    ),
+    tags: (
+      <>
+        <SectionCaption>{t("character.tags")}</SectionCaption>
+        <CharacterTagsEditor character={character} />
+      </>
+    ),
+    quotes: (
+      <>
+        <SectionCaption>{t("quote.title")}</SectionCaption>
+        <QuoteEditor character={character} />
+      </>
+    ),
+    story: (
+      <>
+        <SectionCaption>{t("character.story")}</SectionCaption>
+        <Textarea
+          className="min-h-36"
+          placeholder={t("character.storyPlaceholder")}
+          value={character.story}
+          onChange={(event) =>
+            dispatchCommand({
+              type: "set-story",
+              characterId: character.id,
+              story: event.target.value,
+            })
+          }
+        />
+      </>
+    ),
+    relations: (
+      <>
+        <SectionCaption>{t("character.relations")}</SectionCaption>
+        <RelationGraph
+          worldview={worldview}
+          character={character}
+          characters={characters}
+        />
+        <References
+          worldview={worldview}
+          characters={characters}
+          kind="character"
+          id={character.id}
+        />
+      </>
+    ),
+    timeline: (
+      <>
+        <SectionCaption>{t("timeline.characterSectionTitle")}</SectionCaption>
+        <CharacterTimeline worldview={worldview} character={character} />
+      </>
+    ),
+  };
+  const orderedMainKeys = orderedDetailKeys(
+    DETAIL_LAYOUTS["character-main"],
+    worldview.detailOrders["character-main"],
+  );
+  const orderedAsideKeys = orderedDetailKeys(
+    DETAIL_LAYOUTS["character-aside"],
+    worldview.detailOrders["character-aside"],
+  );
+
   return (
     <WorldShell active="characters" worldviewId={worldview.id}>
     <div className="mx-auto max-w-page px-4 pb-24 pt-5 sm:px-6">
@@ -437,87 +538,32 @@ export function CharacterPageClient() {
             />
           </div>
 
-          <section className="mt-5">
-            <div className="flex items-baseline justify-between">
-              <SectionCaption>{t("character.profile")}</SectionCaption>
-              <Link
-                href={settingsHref(locale, worldview.id)}
-                className="flex items-center gap-1 text-xs text-accent"
-              >
-                <SlidersHorizontal size={13} aria-hidden="true" />
-                {t("character.manageFields")}
-              </Link>
-            </div>
-            {worldview.fieldDefinitions.map((fieldDefinition) => (
-              <ProfileFieldRow
-                key={fieldDefinition.id}
-                character={character}
-                fieldDefinition={fieldDefinition}
-                primaryLocale={worldview.primaryLocale}
-                primaryLabel={t("settings.primaryLocaleLabel")}
-              />
-            ))}
-          </section>
-
-          <section className="mt-5">
-            <SectionCaption>{t("palette.title")}</SectionCaption>
-            <PaletteEditor target={{ kind: "character", character }} />
-          </section>
+          {orderedMainKeys.map((key, index) => (
+            <DetailItem
+              key={key}
+              className="mt-5"
+              layoutId="character-main"
+              itemKey={key}
+              index={index}
+              total={orderedMainKeys.length}
+            >
+              {mainItems[key]}
+            </DetailItem>
+          ))}
         </div>
 
         <div className="mt-7 flex flex-col gap-7 lg:mt-0">
-          <section>
-            <SectionCaption>{t("character.personality")}</SectionCaption>
-            <TagEditor character={character} />
-          </section>
-
-          <section>
-            <SectionCaption>{t("character.tags")}</SectionCaption>
-            <CharacterTagsEditor character={character} />
-          </section>
-
-          <section>
-            <SectionCaption>{t("quote.title")}</SectionCaption>
-            <QuoteEditor character={character} />
-          </section>
-
-          <section>
-            <SectionCaption>{t("character.story")}</SectionCaption>
-            <Textarea
-              className="min-h-36"
-              placeholder={t("character.storyPlaceholder")}
-              value={character.story}
-              onChange={(event) =>
-                dispatchCommand({
-                  type: "set-story",
-                  characterId: character.id,
-                  story: event.target.value,
-                })
-              }
-            />
-          </section>
-
-          <section>
-            <SectionCaption>{t("character.relations")}</SectionCaption>
-            <RelationGraph
-              worldview={worldview}
-              character={character}
-              characters={characters}
-            />
-            <References
-              worldview={worldview}
-              characters={characters}
-              kind="character"
-              id={character.id}
-            />
-          </section>
-
-          <section>
-            <SectionCaption>
-              {t("timeline.characterSectionTitle")}
-            </SectionCaption>
-            <CharacterTimeline worldview={worldview} character={character} />
-          </section>
+          {orderedAsideKeys.map((key, index) => (
+            <DetailItem
+              key={key}
+              layoutId="character-aside"
+              itemKey={key}
+              index={index}
+              total={orderedAsideKeys.length}
+            >
+              {asideItems[key]}
+            </DetailItem>
+          ))}
         </div>
       </div>
     </div>

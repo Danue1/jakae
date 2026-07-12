@@ -3,7 +3,8 @@
 import { BookText, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { DetailItem } from "@/components/DetailItem";
 import { LocaleTabs } from "@/components/LocaleTabs";
 import {
   EntityCard,
@@ -35,6 +36,7 @@ import {
   glossaryTermDisplayName,
   type GlossaryTerm,
 } from "@/core/model";
+import { DETAIL_LAYOUTS, orderedDetailKeys } from "@/core/detailLayout";
 import { LOCALES, type Locale } from "@/locales";
 import { glossaryHref, glossaryListHref } from "@/react/links";
 import { useLocale, useTranslations } from "next-intl";
@@ -92,6 +94,43 @@ export function GlossaryPageClient() {
     router.push(glossaryHref(locale, worldview.id, created.id));
   };
 
+  const detailItems: Record<string, ReactNode> = term
+    ? {
+        description: (
+          <>
+            <SectionCaption>{t("glossary.descriptionLabel")}</SectionCaption>
+            <Textarea
+              className="min-h-40"
+              placeholder={t("glossary.descriptionPlaceholder")}
+              value={term.description}
+              onChange={(event) =>
+                dispatchCommand({
+                  type: "set-glossary-term-description",
+                  termId: term.id,
+                  description: event.target.value,
+                })
+              }
+            />
+          </>
+        ),
+        references: (
+          <>
+            <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
+            <References
+              worldview={worldview}
+              characters={characters}
+              kind="glossary"
+              id={term.id}
+            />
+          </>
+        ),
+      }
+    : {};
+  const orderedKeys = orderedDetailKeys(
+    DETAIL_LAYOUTS.glossary,
+    worldview.detailOrders.glossary,
+  );
+
   return (
     <WorldShell active="glossary" worldviewId={worldview.id}>
       {termId && term ? (
@@ -143,31 +182,18 @@ export function GlossaryPageClient() {
             />
           </div>
 
-          <section className="mt-6">
-            <SectionCaption>{t("glossary.descriptionLabel")}</SectionCaption>
-            <Textarea
-              className="min-h-40"
-              placeholder={t("glossary.descriptionPlaceholder")}
-              value={term.description}
-              onChange={(event) =>
-                dispatchCommand({
-                  type: "set-glossary-term-description",
-                  termId: term.id,
-                  description: event.target.value,
-                })
-              }
-            />
-          </section>
-
-          <section className="mt-6">
-            <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
-            <References
-              worldview={worldview}
-              characters={characters}
-              kind="glossary"
-              id={term.id}
-            />
-          </section>
+          {orderedKeys.map((key, index) => (
+            <DetailItem
+              key={key}
+              className="mt-6"
+              layoutId="glossary"
+              itemKey={key}
+              index={index}
+              total={orderedKeys.length}
+            >
+              {detailItems[key]}
+            </DetailItem>
+          ))}
 
           <section className="mt-8">
             <Button

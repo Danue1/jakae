@@ -4,7 +4,9 @@ import { Building2, ChevronLeft, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { References } from "@/components/References";
+import { DetailItem } from "@/components/DetailItem";
 import { LocaleTabs } from "@/components/LocaleTabs";
 import {
   AvatarStack,
@@ -32,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createGroup, groupDisplayName, type Group } from "@/core/model";
+import { DETAIL_LAYOUTS, orderedDetailKeys } from "@/core/detailLayout";
 import { selectReferencingCharacters } from "@/core/selectors";
 import { LOCALES, type Locale } from "@/locales";
 import { organizationHref, organizationListHref } from "@/react/links";
@@ -94,6 +97,40 @@ export function OrganizationPageClient() {
 
   // ── 상세 ──
   if (organizationId && organization) {
+    const detailItems: Record<string, ReactNode> = {
+      description: (
+        <>
+          <SectionCaption>{t("organization.descriptionLabel")}</SectionCaption>
+          <Textarea
+            className="min-h-28"
+            placeholder={t("organization.descriptionPlaceholder")}
+            value={organization.description}
+            onChange={(event) =>
+              dispatchCommand({
+                type: "set-group-description",
+                groupId: organization.id,
+                description: event.target.value,
+              })
+            }
+          />
+        </>
+      ),
+      references: (
+        <>
+          <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
+          <References
+            worldview={worldview}
+            characters={characters}
+            kind="group"
+            id={organization.id}
+          />
+        </>
+      ),
+    };
+    const orderedKeys = orderedDetailKeys(
+      DETAIL_LAYOUTS.organization,
+      worldview.detailOrders.organization,
+    );
     return (
       <WorldShell active="organizations" worldviewId={worldview.id}>
       <div className="mx-auto max-w-page px-4 pb-24 pt-5 sm:px-6">
@@ -145,31 +182,18 @@ export function OrganizationPageClient() {
           />
         </div>
 
-        <section className="mt-6">
-          <SectionCaption>{t("organization.descriptionLabel")}</SectionCaption>
-          <Textarea
-            className="min-h-28"
-            placeholder={t("organization.descriptionPlaceholder")}
-            value={organization.description}
-            onChange={(event) =>
-              dispatchCommand({
-                type: "set-group-description",
-                groupId: organization.id,
-                description: event.target.value,
-              })
-            }
-          />
-        </section>
-
-        <section className="mt-6">
-          <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
-          <References
-            worldview={worldview}
-            characters={characters}
-            kind="group"
-            id={organization.id}
-          />
-        </section>
+        {orderedKeys.map((key, index) => (
+          <DetailItem
+            key={key}
+            className="mt-6"
+            layoutId="organization"
+            itemKey={key}
+            index={index}
+            total={orderedKeys.length}
+          >
+            {detailItems[key]}
+          </DetailItem>
+        ))}
 
         <section className="mt-8">
           <Button

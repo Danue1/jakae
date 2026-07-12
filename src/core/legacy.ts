@@ -68,9 +68,11 @@ export interface LegacyWorldviewRecord
     | "chapters"
     | "events"
     | "references"
+    | "detailOrders"
   > {
   primaryLocale?: string;
   references?: Reference[];
+  detailOrders?: Record<string, string[]>;
   nameTranslations?: Record<string, string>;
   synopsis?: string;
   synopsisTranslations?: Record<string, string>;
@@ -183,6 +185,7 @@ export function normalizeWorldviewRecord(
       })),
     })),
     references: record.references ?? [],
+    detailOrders: record.detailOrders ?? {},
     createdAt: record.createdAt,
     modifiedAt: record.modifiedAt,
   };
