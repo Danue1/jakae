@@ -8,6 +8,7 @@ import { EventParticipantEditor } from "@/components/EventParticipantEditor";
 import { LocaleTabs } from "@/components/LocaleTabs";
 import { MissingWorldview } from "@/components/MissingWorldview";
 import { SavedIndicator } from "@/components/SavedIndicator";
+import { WorldShell } from "@/components/WorldShell";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +40,7 @@ import {
   placeDisplayName,
 } from "@/core/model";
 import { LOCALES, type Locale } from "@/locales";
-import { characterHref, timelineHref, worldHref } from "@/react/links";
+import { characterHref, timelineHref } from "@/react/links";
 import { useLocale, useTranslations } from "next-intl";
 import { useOpenWorldview } from "@/react/useOpenWorldview";
 import { useWorldviewStore } from "@/react/useWorldviewStore";
@@ -106,7 +107,7 @@ export function EventPageClient() {
 
   const deleteEvent = () => {
     dispatchCommand({ type: "remove-event", eventId: event.id });
-    router.replace(backHref || worldHref(locale, worldview.id));
+    router.replace(backHref || timelineHref(locale, worldview.id));
   };
 
   const ownerCandidates = characters.filter(
@@ -114,7 +115,8 @@ export function EventPageClient() {
   );
 
   return (
-    <div className="mx-auto max-w-page px-4 pb-24 pt-6 sm:px-6">
+    <WorldShell active="timeline" worldviewId={worldview.id}>
+    <div className="mx-auto max-w-page px-4 pb-24 pt-5 sm:px-6">
       <div className="flex items-center gap-2">
         <Link
           href={backHref}
@@ -127,7 +129,7 @@ export function EventPageClient() {
               : t("event.back")}
           </span>
         </Link>
-        <span className="ml-auto">
+        <span className="ml-auto hidden lg:block">
           <SavedIndicator />
         </span>
         <DropdownMenu>
@@ -348,5 +350,6 @@ export function EventPageClient() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </WorldShell>
   );
 }

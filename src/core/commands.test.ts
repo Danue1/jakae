@@ -324,6 +324,81 @@ describe("applyCommand", () => {
     expect(undone.state.worldview.fieldDefinitions[0]?.id).toBe(ageFieldId);
   });
 
+  it("configure-field는 타입·제한을 바꾸고 역커맨드로 이전 config를 복원한다", () => {
+    const { state, ageFieldId } = buildState();
+    const previousConfig = state.worldview.fieldDefinitions[0]?.config;
+    const applied = applyCommand(
+      state,
+      {
+        type: "configure-field",
+        fieldDefinitionId: ageFieldId,
+        config: {
+          type: "number",
+          required: true,
+          multiple: false,
+          options: [],
+          unit: "세",
+          min: 0,
+          max: 150,
+          maxLength: null,
+        },
+      },
+      2000,
+    );
+    const configured = applied.state.worldview.fieldDefinitions[0]?.config;
+    expect(configured?.type).toBe("number");
+    expect(configured?.unit).toBe("세");
+    expect(configured?.required).toBe(true);
+
+    const undone = applyCommand(applied.state, applied.inverse, 3000);
+    expect(undone.state.worldview.fieldDefinitions[0]?.config).toEqual(
+      previousConfig,
+    );
+  });
+
+  it("선택 필드의 표시값은 옵션 id를 라벨로 변환한다(다중은 · 로 잇는다)", () => {
+    const { state, gagaId, ageFieldId } = buildState();
+    const configured = applyCommand(
+      state,
+      {
+        type: "configure-field",
+        fieldDefinitionId: ageFieldId,
+        config: {
+          type: "select",
+          required: false,
+          multiple: true,
+          options: [
+            { id: "opt-elf", label: "엘프" },
+            { id: "opt-human", label: "인간" },
+          ],
+          unit: "",
+          min: null,
+          max: null,
+          maxLength: null,
+        },
+      },
+      2000,
+    );
+    const valued = applyCommand(
+      configured.state,
+      {
+        type: "set-field-value",
+        characterId: gagaId,
+        fieldDefinitionId: ageFieldId,
+        value: "opt-elf,opt-human",
+        locale: "ko",
+      },
+      3000,
+    );
+    const gaga = valued.state.characters.find(
+      (character) => character.id === gagaId,
+    );
+    if (!gaga) throw new Error("가가 누락");
+    expect(
+      fieldDisplayValue(valued.state.worldview, gaga, ageFieldId, "ko"),
+    ).toBe("엘프 · 인간");
+  });
+
   it("배경색 지정이 왕복한다", () => {
     const { state, gagaId } = buildState();
     const colored = applyCommand(

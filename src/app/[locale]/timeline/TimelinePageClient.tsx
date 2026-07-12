@@ -2,13 +2,11 @@
 
 import {
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   ChevronUp,
   EllipsisVertical,
   Pencil,
   Plus,
-  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -16,6 +14,7 @@ import { useState } from "react";
 import { Avatar } from "@/components/Avatar";
 import { MissingWorldview } from "@/components/MissingWorldview";
 import { SavedIndicator } from "@/components/SavedIndicator";
+import { WorldShell } from "@/components/WorldShell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,20 +26,13 @@ import {
   createChapter,
   createTimelineEvent,
   eventDisplayTitle,
-  worldviewDisplayName,
   type Character,
   type Chapter,
   type TimelineEvent,
   type Worldview,
 } from "@/core/model";
 import { eventMoveTargetIndex, selectWorldTimeline } from "@/core/selectors";
-import {
-  chapterHref,
-  eventHref,
-  libraryHref,
-  settingsHref,
-  worldHref,
-} from "@/react/links";
+import { chapterHref, eventHref } from "@/react/links";
 import { useLocale, useTranslations } from "next-intl";
 import { useOpenWorldview } from "@/react/useOpenWorldview";
 import { useWorldviewStore } from "@/react/useWorldviewStore";
@@ -267,42 +259,16 @@ export function TimelinePageClient() {
     router.push(eventHref(locale, worldview.id, event.id));
   };
 
-  const chipClassName = (active: boolean) =>
-    active
-      ? "shrink-0 rounded-full bg-accent px-4 py-1.5 text-sm font-bold text-accent-foreground"
-      : "shrink-0 rounded-full bg-hover px-4 py-1.5 text-sm text-ink hover:bg-accent-soft";
-
   return (
-    <div className="mx-auto max-w-page px-4 pb-28 pt-6 sm:px-6">
+    <WorldShell active="timeline" worldviewId={worldview.id}>
+    <div className="mx-auto max-w-page px-4 pb-28 pt-5 sm:px-6">
       <div className="flex items-center gap-2">
-        <Link
-          href={libraryHref(locale)}
-          className="flex items-center gap-1 rounded-lg py-1 pr-2 text-sm text-muted hover:text-ink"
-        >
-          <ChevronLeft size={17} aria-hidden="true" />
-          {t("library.title")}
-        </Link>
-        <span className="ml-auto">
+        <h1 className="text-xl font-extrabold tracking-tight">
+          {t("timeline.heading")}
+        </h1>
+        <span className="ml-auto hidden lg:block">
           <SavedIndicator />
         </span>
-        <Link
-          href={settingsHref(locale, worldview.id)}
-          aria-label={t("world.settings")}
-          className="rounded-lg p-2 text-muted hover:bg-hover hover:text-ink"
-        >
-          <Settings size={19} aria-hidden="true" />
-        </Link>
-      </div>
-
-      <h1 className="mt-3 text-3xl font-extrabold tracking-tight">
-        {worldviewDisplayName(worldview, locale) || "-"}
-      </h1>
-
-      <div className="mt-4 flex gap-2">
-        <Link href={worldHref(locale, worldview.id)} className={chipClassName(false)}>
-          {t("timeline.tabCharacters")}
-        </Link>
-        <span className={chipClassName(true)}>{t("timeline.tabTimeline")}</span>
       </div>
 
       {groups.length === 0 ? (
@@ -423,5 +389,6 @@ export function TimelinePageClient() {
         </button>
       </div>
     </div>
+    </WorldShell>
   );
 }

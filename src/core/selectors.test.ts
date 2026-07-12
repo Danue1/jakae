@@ -2,17 +2,83 @@ import { describe, expect, it } from "vitest";
 import {
   characterCaptionDetail,
   createCharacter,
+  createGlossaryTerm,
+  createGroup,
+  createPlace,
   createWorldview,
 } from "./model";
 import {
   defaultViewState,
   selectAllTags,
+  selectGlobalSearchResults,
   selectVisibleCharacters,
 } from "./selectors";
 
 const SEED_DEFAULTS = {
   fieldLabels: ["나이", "종족"],
 };
+
+describe("selectGlobalSearchResults", () => {
+  it("빈 질의는 결과 없음", () => {
+    const worldview = createWorldview("테스트", SEED_DEFAULTS, "ko", "", 0);
+    expect(selectGlobalSearchResults(worldview, [], "  ", "ko")).toEqual([]);
+  });
+
+  it("자캐·조직·장소·용어를 종류별로 관통 매치한다", () => {
+    const worldview = createWorldview("테스트", SEED_DEFAULTS, "ko", "", 0);
+    const group = createGroup("공명 선단");
+    const place = createPlace("공명 관측소");
+    const term = createGlossaryTerm("공명항법");
+    worldview.groups = [group];
+    worldview.places = [place];
+    worldview.glossary = [term];
+    const character = createCharacter(worldview.id, "공명이", 0);
+    const other = createCharacter(worldview.id, "무관", 0);
+
+    const results = selectGlobalSearchResults(
+      worldview,
+      [character, other],
+      "공명",
+      "ko",
+    );
+    expect(results.map((result) => result.kind)).toEqual([
+      "character",
+      "group",
+      "place",
+      "glossary",
+    ]);
+    expect(results.map((result) => result.name)).toEqual([
+      "공명이",
+      "공명 선단",
+      "공명 관측소",
+      "공명항법",
+    ]);
+  });
+
+  it("표시 이름은 보는 언어를 따르고 번역 이름도 매치한다", () => {
+    const worldview = createWorldview("테스트", SEED_DEFAULTS, "ko", "", 0);
+    const character = createCharacter(worldview.id, "가가", 0);
+    character.nameTranslations = { en: "Gaga" };
+    const results = selectGlobalSearchResults(
+      worldview,
+      [character],
+      "gaga",
+      "en",
+    );
+    expect(results).toEqual([
+      { kind: "character", id: character.id, name: "Gaga" },
+    ]);
+  });
+
+  it("휴지통 자캐는 제외한다", () => {
+    const worldview = createWorldview("테스트", SEED_DEFAULTS, "ko", "", 0);
+    const trashed = createCharacter(worldview.id, "버려짐", 0);
+    trashed.deletedAt = 1;
+    expect(selectGlobalSearchResults(worldview, [trashed], "버려", "ko")).toEqual(
+      [],
+    );
+  });
+});
 
 describe("selectVisibleCharacters", () => {
   it("검색어는 이름·언어별 이름·태그를 함께 거른다", () => {

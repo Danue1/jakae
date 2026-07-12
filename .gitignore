@@ -6,3 +6,8 @@ dist/
 
 # macOS
 .DS_Store
+
+# 로컬 개발 도구·부수 자료 (빌드 미참조)
+.claude/
+mockups/
+marketing/

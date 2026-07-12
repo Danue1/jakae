@@ -1,7 +1,13 @@
 import {
   characterDisplayName,
+  chapterDisplayName,
+  eventDisplayTitle,
+  glossaryTermDisplayName,
+  groupDisplayName,
+  placeDisplayName,
   type Character,
   type Chapter,
+  type Place,
   type TimelineEvent,
   type Worldview,
 } from "./model";
@@ -87,6 +93,127 @@ export function selectVisibleCharacters(
 
 export function selectActiveCharacters(characters: Character[]): Character[] {
   return characters.filter((character) => character.deletedAt === null);
+}
+
+export type SearchResultKind =
+  | "character"
+  | "group"
+  | "place"
+  | "glossary"
+  | "chapter"
+  | "event";
+
+export interface SearchResult {
+  kind: SearchResultKind;
+  id: string;
+  name: string;
+}
+
+// 전역 검색 — 모든 로어 엔티티를 언어 무관하게(원본+모든 번역) 이름으로 매치. 종류 순서로 묶어 반환한다.
+// 표시 이름은 보는 언어 기준(fallback 원본). 휴지통 자캐는 제외.
+export function selectGlobalSearchResults(
+  worldview: Worldview,
+  characters: Character[],
+  query: string,
+  locale: string,
+): SearchResult[] {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const lowered = trimmed.toLowerCase();
+  const matches = (name: string, translations: Record<string, string>) =>
+    [name, ...Object.values(translations)].some((value) =>
+      value.toLowerCase().includes(lowered),
+    );
+
+  const results: SearchResult[] = [];
+  for (const character of selectActiveCharacters(characters)) {
+    if (
+      matches(character.name, character.nameTranslations) ||
+      [...character.personalityTags, ...character.tags].some((tag) =>
+        tag.toLowerCase().includes(lowered),
+      )
+    )
+      results.push({
+        kind: "character",
+        id: character.id,
+        name: characterDisplayName(character, locale),
+      });
+  }
+  for (const group of worldview.groups)
+    if (matches(group.name, group.nameTranslations))
+      results.push({
+        kind: "group",
+        id: group.id,
+        name: groupDisplayName(group, locale),
+      });
+  for (const place of worldview.places)
+    if (matches(place.name, place.nameTranslations))
+      results.push({
+        kind: "place",
+        id: place.id,
+        name: placeDisplayName(place, locale),
+      });
+  for (const term of worldview.glossary)
+    if (matches(term.name, term.nameTranslations))
+      results.push({
+        kind: "glossary",
+        id: term.id,
+        name: glossaryTermDisplayName(term, locale),
+      });
+  for (const chapter of worldview.chapters)
+    if (matches(chapter.name, chapter.nameTranslations))
+      results.push({
+        kind: "chapter",
+        id: chapter.id,
+        name: chapterDisplayName(chapter, locale),
+      });
+  for (const event of worldview.events)
+    if (matches(event.title, event.titleTranslations))
+      results.push({
+        kind: "event",
+        id: event.id,
+        name: eventDisplayTitle(event, locale),
+      });
+  return results;
+}
+
+// 조직 구성원 = 그 조직에 속한(휴지통 제외) 캐릭터. 이름순 정렬.
+export function selectOrganizationMembers(
+  characters: Character[],
+  groupId: string,
+  locale: string,
+): Character[] {
+  return selectActiveCharacters(characters)
+    .filter((character) => character.groupIds.includes(groupId))
+    .sort((first, second) =>
+      characterDisplayName(first, locale).localeCompare(
+        characterDisplayName(second, locale),
+        locale,
+      ),
+    );
+}
+
+export function selectChildPlaces(
+  worldview: Worldview,
+  parentId: string,
+): Place[] {
+  return worldview.places.filter((place) => place.parentId === parentId);
+}
+
+// 상위 장소가 없는(최상위) 장소들 — 트리 루트. 부모 참조가 끊긴 경우도 루트로 취급.
+export function selectRootPlaces(worldview: Worldview): Place[] {
+  const placeIds = new Set(worldview.places.map((place) => place.id));
+  return worldview.places.filter(
+    (place) => place.parentId === null || !placeIds.has(place.parentId),
+  );
+}
+
+// 이 장소를 무대로 하는 사건 — 배열 순서 유지.
+export function selectPlaceEvents(
+  worldview: Worldview,
+  placeId: string,
+): TimelineEvent[] {
+  return worldview.events.filter((event) => event.placeId === placeId);
 }
 
 export function worldviewPreviewCharacters(

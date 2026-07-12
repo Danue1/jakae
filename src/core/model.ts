@@ -1,7 +1,61 @@
+// 필드 타입 — text는 자유 서술, number는 범위·단위, select는 옵션 중 고르기, date는 월·일.
+export type FieldType = "text" | "number" | "select" | "date";
+
+// 선택 필드의 옵션 한 칸 — id는 값 저장에 쓰는 안정 키, label은 표시 이름.
+export interface FieldOption {
+  id: string;
+  label: string;
+}
+
+// 타입별 세부 제한. 해당 타입에서만 의미 있는 값은 다른 타입일 때 기본값(빈 배열·빈 문자열·null)으로 둔다.
+export interface FieldConfig {
+  type: FieldType;
+  required: boolean;
+  // select 전용
+  multiple: boolean;
+  options: FieldOption[];
+  // number 전용
+  unit: string;
+  min: number | null;
+  max: number | null;
+  // text 전용
+  maxLength: number | null;
+}
+
 export interface FieldDefinition {
   id: string;
   label: string;
   localized: boolean;
+  config: FieldConfig;
+}
+
+// 다중 선택 값은 옵션 id들을 이 구분자로 이어 붙인 단일 문자열로 저장한다(옵션 id는 UUID라 충돌 없음).
+export const MULTI_VALUE_SEPARATOR = ",";
+
+export function defaultFieldConfig(): FieldConfig {
+  return {
+    type: "text",
+    required: false,
+    multiple: false,
+    options: [],
+    unit: "",
+    min: null,
+    max: null,
+    maxLength: null,
+  };
+}
+
+export function createFieldOption(label = ""): FieldOption {
+  return { id: crypto.randomUUID(), label };
+}
+
+// 저장 문자열 ↔ 선택된 옵션 id 목록. 빈 문자열은 "선택 없음".
+export function parseSelectValue(rawValue: string): string[] {
+  return rawValue ? rawValue.split(MULTI_VALUE_SEPARATOR) : [];
+}
+
+export function serializeSelectValue(optionIds: string[]): string {
+  return optionIds.join(MULTI_VALUE_SEPARATOR);
 }
 
 // 조직(세력·단체) — 캐릭터를 묶는 그룹에서 승격된 로어 엔티티. 다국어 이름·설명을 갖는다.
@@ -161,6 +215,7 @@ export function createWorldview(
       id: crypto.randomUUID(),
       label,
       localized: false,
+      config: defaultFieldConfig(),
     })),
     groups: [],
     places: [],
@@ -314,6 +369,15 @@ export function eventDisplayTitle(event: TimelineEvent, locale: string): string 
   return event.titleTranslations[locale] || event.title;
 }
 
+// 선택 필드의 저장 값(옵션 id 문자열) → 옵션 라벨. 삭제된 옵션 id는 건너뛴다.
+export function selectDisplayValue(config: FieldConfig, rawValue: string): string {
+  return parseSelectValue(rawValue)
+    .map((optionId) => config.options.find((option) => option.id === optionId))
+    .filter((option): option is FieldOption => option !== undefined)
+    .map((option) => option.label)
+    .join(" · ");
+}
+
 export function fieldDisplayValue(
   worldview: Worldview,
   character: Character,
@@ -325,10 +389,14 @@ export function fieldDisplayValue(
   );
   if (!fieldDefinition) return "";
   const primaryValue = character.fieldValues[fieldDefinitionId] ?? "";
-  if (!fieldDefinition.localized) return primaryValue;
-  return (
-    character.fieldValueTranslations[fieldDefinitionId]?.[locale] || primaryValue
-  );
+  const rawValue = fieldDefinition.localized
+    ? character.fieldValueTranslations[fieldDefinitionId]?.[locale] ||
+      primaryValue
+    : primaryValue;
+  if (fieldDefinition.config.type === "select") {
+    return selectDisplayValue(fieldDefinition.config, rawValue);
+  }
+  return rawValue;
 }
 
 // 카드 캡션의 상세 줄 = 처음 두 필드의 값 — 필드 순서 관리가 곧 캡션 사용자화다.

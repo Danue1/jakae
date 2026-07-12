@@ -5,6 +5,7 @@ import {
   EllipsisVertical,
   SlidersHorizontal,
   Star,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -19,6 +20,7 @@ import { QuoteEditor } from "@/components/QuoteEditor";
 import { RelationEditor } from "@/components/RelationEditor";
 import { RelationGraph } from "@/components/RelationGraph";
 import { SavedIndicator } from "@/components/SavedIndicator";
+import { WorldShell } from "@/components/WorldShell";
 import { CharacterTagsEditor } from "@/components/CharacterTagsEditor";
 import { TagEditor } from "@/components/TagEditor";
 import { Button } from "@/components/ui/button";
@@ -30,15 +32,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
+  parseSelectValue,
+  serializeSelectValue,
   worldviewDisplayName,
   type Character,
   type FieldDefinition,
 } from "@/core/model";
 import { LOCALES, type Locale } from "@/locales";
-import { characterHref, settingsHref, worldHref } from "@/react/links";
+import { charactersHref, characterHref, settingsHref } from "@/react/links";
 import { useFieldBinding } from "@/react/useFieldBinding";
 import { useLocale, useTranslations } from "next-intl";
 import { useOpenWorldview } from "@/react/useOpenWorldview";
@@ -53,7 +64,8 @@ function SectionCaption({ children }: { children: string }) {
   );
 }
 
-function ProfileFieldRow({
+// 텍스트 필드 — 언어별 값(localized)을 편집 로케일 슬롯으로 다룬다. maxLength 제한을 강제한다.
+function TextFieldEditor({
   character,
   fieldDefinition,
   primaryLocale,
@@ -72,11 +84,8 @@ function ProfileFieldRow({
     fieldDefinition.localized ? editingLocale : undefined,
   );
   return (
-    <div className="flex items-center gap-2 border-b border-line py-1 last:border-b-0">
-      <span className="w-24 shrink-0 truncate text-sm text-muted">
-        {fieldDefinition.label}
-      </span>
-      <Input {...binding} />
+    <>
+      <Input {...binding} maxLength={fieldDefinition.config.maxLength ?? undefined} />
       {fieldDefinition.localized && (
         <LocaleTabs
           value={editingLocale}
@@ -92,6 +101,183 @@ function ProfileFieldRow({
           )}
           primaryLocale={primaryLocale}
           primaryLabel={primaryLabel}
+        />
+      )}
+    </>
+  );
+}
+
+// 숫자·선택·날짜 — 언어 무관 원본 값(fieldValues)만 편집한다.
+function StructuredFieldEditor({
+  character,
+  fieldDefinition,
+  primaryLocale,
+}: {
+  character: Character;
+  fieldDefinition: FieldDefinition;
+  primaryLocale: string;
+}) {
+  const t = useTranslations();
+  const { config } = fieldDefinition;
+  const rawValue = character.fieldValues[fieldDefinition.id] ?? "";
+  const setValue = (value: string) =>
+    dispatchCommand({
+      type: "set-field-value",
+      characterId: character.id,
+      fieldDefinitionId: fieldDefinition.id,
+      value,
+      locale: primaryLocale,
+    });
+
+  if (config.type === "number") {
+    return (
+      <div className="flex flex-1 items-center gap-2">
+        <Input
+          type="number"
+          inputMode="decimal"
+          placeholder="-"
+          value={rawValue}
+          min={config.min ?? undefined}
+          max={config.max ?? undefined}
+          onChange={(event) => setValue(event.target.value)}
+        />
+        {config.unit && (
+          <span className="shrink-0 text-sm text-muted">{config.unit}</span>
+        )}
+      </div>
+    );
+  }
+
+  if (config.type === "date") {
+    const [month = "", day = ""] = rawValue.split("-");
+    const commit = (nextMonth: string, nextDay: string) =>
+      setValue(nextMonth || nextDay ? `${nextMonth}-${nextDay}` : "");
+    return (
+      <div className="flex flex-1 items-center gap-1.5">
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={12}
+          className="w-14 text-center"
+          placeholder="--"
+          value={month}
+          onChange={(event) => commit(event.target.value, day)}
+        />
+        <span className="text-sm text-muted">{t("field.monthLabel")}</span>
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={31}
+          className="w-14 text-center"
+          placeholder="--"
+          value={day}
+          onChange={(event) => commit(month, event.target.value)}
+        />
+        <span className="text-sm text-muted">{t("field.dayLabel")}</span>
+      </div>
+    );
+  }
+
+  // select
+  const selectedIds = parseSelectValue(rawValue);
+  if (config.multiple) {
+    const toggle = (optionId: string) =>
+      setValue(
+        serializeSelectValue(
+          selectedIds.includes(optionId)
+            ? selectedIds.filter((id) => id !== optionId)
+            : [...selectedIds, optionId],
+        ),
+      );
+    return (
+      <div className="flex flex-1 flex-wrap gap-1.5">
+        {config.options.map((option) => {
+          const selected = selectedIds.includes(option.id);
+          return (
+            <button
+              key={option.id}
+              aria-pressed={selected}
+              onClick={() => toggle(option.id)}
+              className={cn(
+                "rounded-full px-3 py-1 text-sm",
+                selected
+                  ? "bg-accent-soft font-semibold text-accent"
+                  : "bg-hover text-muted hover:text-ink",
+              )}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+  const selectedId = selectedIds[0] ?? "";
+  return (
+    <div className="flex flex-1 items-center gap-1">
+      <Select
+        value={selectedId || undefined}
+        onValueChange={(value) => setValue(value)}
+      >
+        <SelectTrigger className="bg-hover">
+          <SelectValue placeholder={t("field.selectPlaceholder")} />
+        </SelectTrigger>
+        <SelectContent>
+          {config.options.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {selectedId && (
+        <button
+          aria-label={t("field.clear")}
+          className="shrink-0 rounded p-1 text-muted hover:text-ink"
+          onClick={() => setValue("")}
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ProfileFieldRow({
+  character,
+  fieldDefinition,
+  primaryLocale,
+  primaryLabel,
+}: {
+  character: Character;
+  fieldDefinition: FieldDefinition;
+  primaryLocale: string;
+  primaryLabel: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 border-b border-line py-1 last:border-b-0">
+      <span className="flex w-24 shrink-0 items-center gap-1 truncate text-sm text-muted">
+        <span className="truncate">{fieldDefinition.label}</span>
+        {fieldDefinition.config.required && (
+          <span className="text-danger" aria-hidden="true">
+            *
+          </span>
+        )}
+      </span>
+      {fieldDefinition.config.type === "text" ? (
+        <TextFieldEditor
+          character={character}
+          fieldDefinition={fieldDefinition}
+          primaryLocale={primaryLocale}
+          primaryLabel={primaryLabel}
+        />
+      ) : (
+        <StructuredFieldEditor
+          character={character}
+          fieldDefinition={fieldDefinition}
+          primaryLocale={primaryLocale}
         />
       )}
     </div>
@@ -123,7 +309,7 @@ export function CharacterPageClient() {
 
   useEffect(() => {
     if (characterMissing && worldviewId) {
-      router.replace(worldHref(locale, worldviewId));
+      router.replace(charactersHref(locale, worldviewId));
     }
   }, [characterMissing, worldviewId, locale, router]);
 
@@ -139,7 +325,7 @@ export function CharacterPageClient() {
 
   const moveToTrash = () => {
     dispatchCommand({ type: "move-to-trash", characterId: character.id });
-    router.replace(worldHref(locale, worldview.id));
+    router.replace(charactersHref(locale, worldview.id));
   };
 
   const duplicateAndOpen = async () => {
@@ -152,10 +338,11 @@ export function CharacterPageClient() {
   };
 
   return (
-    <div className="mx-auto max-w-page px-4 pb-24 pt-6 sm:px-6">
+    <WorldShell active="characters" worldviewId={worldview.id}>
+    <div className="mx-auto max-w-page px-4 pb-24 pt-5 sm:px-6">
       <div className="flex items-center gap-2">
         <Link
-          href={worldHref(locale, worldview.id)}
+          href={charactersHref(locale, worldview.id)}
           className="flex min-w-0 items-center gap-1 rounded-lg py-1 pr-2 text-sm text-muted hover:text-ink"
         >
           <ChevronLeft size={17} aria-hidden="true" className="shrink-0" />
@@ -361,5 +548,6 @@ export function CharacterPageClient() {
         </div>
       </div>
     </div>
+    </WorldShell>
   );
 }

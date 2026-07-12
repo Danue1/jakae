@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import { WorldPageClient } from "./WorldPageClient";
+import { OverviewPageClient } from "./OverviewPageClient";
 
 export default function WorldPage() {
   return (
     <Suspense fallback={null}>
-      <WorldPageClient />
+      <OverviewPageClient />
     </Suspense>
   );
 }

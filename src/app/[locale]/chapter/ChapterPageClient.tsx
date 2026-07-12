@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { LocaleTabs } from "@/components/LocaleTabs";
 import { MissingWorldview } from "@/components/MissingWorldview";
 import { SavedIndicator } from "@/components/SavedIndicator";
+import { WorldShell } from "@/components/WorldShell";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -118,7 +119,8 @@ export function ChapterPageClient() {
   };
 
   return (
-    <div className="mx-auto max-w-page px-4 pb-24 pt-6 sm:px-6">
+    <WorldShell active="timeline" worldviewId={worldview.id}>
+    <div className="mx-auto max-w-page px-4 pb-24 pt-5 sm:px-6">
       <div className="flex items-center gap-2">
         <Link
           href={timelineHref(locale, worldview.id)}
@@ -127,7 +129,7 @@ export function ChapterPageClient() {
           <ChevronLeft size={17} aria-hidden="true" className="shrink-0" />
           <span className="truncate">{t("chapter.back")}</span>
         </Link>
-        <span className="ml-auto">
+        <span className="ml-auto hidden lg:block">
           <SavedIndicator />
         </span>
         <DropdownMenu>
@@ -305,5 +307,6 @@ export function ChapterPageClient() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </WorldShell>
   );
 }

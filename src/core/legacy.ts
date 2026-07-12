@@ -1,18 +1,51 @@
-import type {
-  Chapter,
-  Character,
-  CharacterAppearance,
-  CharacterImage,
-  CharacterQuote,
-  FieldDefinition,
-  GlossaryTerm,
-  Group,
-  PaletteColor,
-  Place,
-  Relation,
-  TimelineEvent,
-  Worldview,
+import {
+  defaultFieldConfig,
+  type Chapter,
+  type Character,
+  type CharacterAppearance,
+  type CharacterImage,
+  type CharacterQuote,
+  type FieldConfig,
+  type FieldDefinition,
+  type FieldOption,
+  type FieldType,
+  type GlossaryTerm,
+  type Group,
+  type PaletteColor,
+  type Place,
+  type Relation,
+  type TimelineEvent,
+  type Worldview,
 } from "./model";
+
+const FIELD_TYPES: readonly FieldType[] = ["text", "number", "select", "date"];
+
+function isFieldType(value: unknown): value is FieldType {
+  return typeof value === "string" && FIELD_TYPES.includes(value as FieldType);
+}
+
+// v1~v3 데이터엔 config가 없다 — 누락 키를 기본값으로 채우고, 예전 flat type 힌트가 있으면 반영한다.
+function normalizeFieldConfig(
+  raw: Partial<FieldConfig> | undefined,
+  legacyType: string | undefined,
+): FieldConfig {
+  const base = defaultFieldConfig();
+  if (!raw) {
+    return { ...base, type: isFieldType(legacyType) ? legacyType : base.type };
+  }
+  return {
+    type: isFieldType(raw.type) ? raw.type : base.type,
+    required: raw.required ?? base.required,
+    multiple: raw.multiple ?? base.multiple,
+    options: (raw.options ?? base.options).map(
+      (option): FieldOption => ({ id: option.id, label: option.label }),
+    ),
+    unit: raw.unit ?? base.unit,
+    min: raw.min ?? base.min,
+    max: raw.max ?? base.max,
+    maxLength: raw.maxLength ?? base.maxLength,
+  };
+}
 
 // v1·v2 데이터(particles, builtIn 플래그, 다국어 필드 부재)를 v3 형태로 읽기 시점에 정규화한다.
 // 파괴적 변환이 없으므로 저장소 스키마 버전은 올리지 않는다.
@@ -51,10 +84,11 @@ export interface LegacyWorldviewRecord
   glossary?: GlossaryTerm[];
   chapters?: Chapter[];
   events?: (Omit<TimelineEvent, "placeId"> & { placeId?: string | null })[];
-  fieldDefinitions: (Omit<FieldDefinition, "localized"> & {
+  fieldDefinitions: (Omit<FieldDefinition, "localized" | "config"> & {
     localized?: boolean;
     builtIn?: boolean;
     type?: string;
+    config?: Partial<FieldConfig>;
   })[];
 }
 
@@ -103,6 +137,7 @@ export function normalizeWorldviewRecord(
       id: fieldDefinition.id,
       label: fieldDefinition.label,
       localized: fieldDefinition.localized ?? false,
+      config: normalizeFieldConfig(fieldDefinition.config, fieldDefinition.type),
     })),
     groups: record.groups.map((group) => ({
       id: group.id,

@@ -4,6 +4,7 @@ import type {
   CharacterImage,
   CharacterQuote,
   EventParticipant,
+  FieldConfig,
   FieldDefinition,
   GlossaryTerm,
   Group,
@@ -85,6 +86,11 @@ export type WorldviewCommand =
       type: "set-field-localized";
       fieldDefinitionId: string;
       localized: boolean;
+    }
+  | {
+      type: "configure-field";
+      fieldDefinitionId: string;
+      config: FieldConfig;
     }
   | {
       type: "move-field-definition";
@@ -1111,6 +1117,33 @@ export function applyCommand(
           type: "rename-field-definition",
           fieldDefinitionId: command.fieldDefinitionId,
           label: fieldDefinition.label,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "configure-field": {
+      const fieldDefinition = state.worldview.fieldDefinitions.find(
+        (existing) => existing.id === command.fieldDefinitionId,
+      );
+      if (!fieldDefinition)
+        throw new Error(`존재하지 않는 필드: ${command.fieldDefinitionId}`);
+      return {
+        state: patchWorldview(
+          state,
+          {
+            fieldDefinitions: state.worldview.fieldDefinitions.map((existing) =>
+              existing.id === command.fieldDefinitionId
+                ? { ...existing, config: command.config }
+                : existing,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "configure-field",
+          fieldDefinitionId: command.fieldDefinitionId,
+          config: fieldDefinition.config,
         },
         dirty: { worldview: true },
       };
