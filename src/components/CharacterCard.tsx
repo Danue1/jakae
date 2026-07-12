@@ -13,8 +13,8 @@ import {
 } from "@/components/ui/context-menu";
 import type { Character, Worldview } from "../core/model";
 import { characterCaptionDetail, characterDisplayName } from "../core/model";
+import { useLocale, useTranslations } from "next-intl";
 import { characterHref } from "../react/links";
-import { useLocale } from "../react/localeContext";
 import { dispatchCommand, duplicateCharacter } from "../store/worldviewStore";
 import { Avatar } from "./Avatar";
 
@@ -29,13 +29,14 @@ export function CharacterCard({
   inTrash: boolean;
   onRequestDeleteForever: (character: Character) => void;
 }) {
-  const { locale, dictionary } = useLocale();
+  const locale = useLocale();
+  const t = useTranslations();
   const router = useRouter();
 
   const duplicateAndOpen = async () => {
     const copiedCharacterId = await duplicateCharacter(
       character.id,
-      dictionary.character.copySuffix,
+      t("character.copySuffix"),
     );
     if (copiedCharacterId)
       router.push(characterHref(locale, worldview.id, copiedCharacterId));
@@ -78,14 +79,14 @@ export function CharacterCard({
                   })
                 }
               >
-                {dictionary.world.restore}
+                {t("world.restore")}
               </Button>
               <Button
                 variant="danger"
                 size="sm"
                 onClick={() => onRequestDeleteForever(character)}
               >
-                {dictionary.world.deleteForever}
+                {t("world.deleteForever")}
               </Button>
             </div>
           </div>
@@ -109,13 +110,13 @@ export function CharacterCard({
                 })
               }
             >
-              {dictionary.world.restore}
+              {t("world.restore")}
             </ContextMenuItem>
             <ContextMenuItem
               className="text-danger"
               onSelect={() => onRequestDeleteForever(character)}
             >
-              {dictionary.world.deleteForever}
+              {t("world.deleteForever")}
             </ContextMenuItem>
           </>
         ) : (
@@ -125,10 +126,10 @@ export function CharacterCard({
                 router.push(characterHref(locale, worldview.id, character.id))
               }
             >
-              {dictionary.world.edit}
+              {t("world.edit")}
             </ContextMenuItem>
             <ContextMenuItem onSelect={() => void duplicateAndOpen()}>
-              {dictionary.world.duplicate}
+              {t("world.duplicate")}
             </ContextMenuItem>
             <ContextMenuItem
               onSelect={() =>
@@ -140,8 +141,8 @@ export function CharacterCard({
               }
             >
               {character.favorite
-                ? dictionary.world.unfavorite
-                : dictionary.world.favorite}
+                ? t("world.unfavorite")
+                : t("world.favorite")}
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
@@ -153,7 +154,7 @@ export function CharacterCard({
                 })
               }
             >
-              {dictionary.world.moveToTrash}
+              {t("world.moveToTrash")}
             </ContextMenuItem>
           </>
         )}

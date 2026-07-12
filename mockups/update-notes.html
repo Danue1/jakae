@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>업데이트 노트 기능 시안</title>
+<style>
+  /* ── T1 여백 테마 토큰 (src/theme.css와 동일) ───────────────── */
+  :root {
+    --ground:#ffffff; --ink:#1c2128; --muted:#5e6b7c; --line:#dfe4ec;
+    --hover:#f5f7fa; --accent:#3e6db5; --accent-soft:#e7eef9;
+    --accent-fg:#ffffff; --star:#d0952f; --danger:#b4533a;
+    --radius:10px; --shadow:0 10px 28px rgb(10 20 40 / .18);
+    --font:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Noto Sans KR",-apple-system,sans-serif;
+    --xs:13px; --sm:15px; --base:17px;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:#eef1f5; color:var(--ink); font-family:var(--font);
+    font-size:var(--sm); line-height:1.55; word-break:keep-all; overflow-wrap:break-word;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,p { margin:0; }
+
+  /* 페이지 셸 */
+  .page { max-width:1100px; margin:0 auto; padding:28px 20px 80px; }
+  .lead h1 { font-size:26px; font-weight:800; letter-spacing:-.02em; }
+  .lead p { margin-top:6px; color:var(--muted); font-size:var(--sm); max-width:64ch; }
+  .lead code { background:var(--ground); border:1px solid var(--line); border-radius:6px; padding:1px 6px; font-size:13px; }
+
+  /* 시안 전환 탭 */
+  .switch { display:flex; flex-wrap:wrap; gap:8px; margin:22px 0 8px; position:sticky; top:0;
+    background:#eef1f5; padding:10px 0; z-index:5; }
+  .switch button {
+    border:1px solid var(--line); background:var(--ground); color:var(--ink);
+    border-radius:999px; padding:8px 15px; font:inherit; font-size:var(--sm); cursor:pointer;
+  }
+  .switch button[aria-selected="true"] { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; }
+
+  .concept { display:none; }
+  .concept[data-active] { display:block; }
+
+  .note {
+    background:var(--accent-soft); border-radius:12px; padding:14px 16px; margin-bottom:18px;
+    font-size:var(--sm); color:#22364f;
+  }
+  .note b { color:var(--ink); }
+  .note code { background:var(--ground); border:1px solid #c9d8ef; border-radius:6px; padding:1px 6px; font-size:13px; }
+  .note .tags { margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
+  .note .tags span { background:var(--ground); border:1px solid #c9d8ef; color:var(--accent);
+    border-radius:999px; padding:2px 10px; font-size:var(--xs); font-weight:600; }
+
+  /* 기기 프레임 (실제 앱 폭 감각) */
+  .stage { display:flex; flex-wrap:wrap; gap:26px; align-items:flex-start; }
+  .phone {
+    width:400px; max-width:100%; background:var(--ground); border-radius:22px;
+    box-shadow:var(--shadow); overflow:hidden; border:1px solid var(--line); position:relative;
+  }
+  .phone .inner { padding:18px 16px 26px; }
+  .caption { width:260px; min-width:220px; flex:1; color:var(--muted); font-size:var(--sm); }
+  .caption h3 { color:var(--ink); font-size:var(--base); font-weight:700; margin-bottom:6px; }
+  .caption ul { margin:10px 0 0; padding-left:18px; }
+  .caption li { margin:5px 0; }
+
+  /* 앱 상단 바 */
+  .topbar { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:var(--sm); }
+  .topbar .brand { font-weight:800; color:var(--ink); font-size:var(--base); letter-spacing:-.01em; }
+  .topbar .spacer { margin-left:auto; }
+  .iconbtn { position:relative; width:34px; height:34px; border-radius:9px; display:grid; place-items:center;
+    background:var(--hover); font-size:16px; color:var(--ink); }
+  .dot { position:absolute; top:5px; right:6px; width:8px; height:8px; border-radius:50%;
+    background:var(--danger); border:2px solid var(--ground); }
+
+  /* 자캐 카드 그리드 (배경 감각용) */
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+  .ccard { border:1px solid var(--line); border-radius:12px; padding:10px; display:flex; gap:9px; align-items:center; }
+  .ccard .th { width:38px; height:48px; border-radius:8px; display:grid; place-items:center; color:#fff; font-weight:800; font-size:16px; }
+  .ccard .cn { font-weight:700; font-size:var(--sm); }
+  .ccard .cs { color:var(--muted); font-size:var(--xs); }
+  .dim { opacity:.5; }
+
+  /* 배지·태그(변경 유형) */
+  .kind { border-radius:999px; padding:2px 9px; font-size:var(--xs); font-weight:700; display:inline-block; }
+  .k-new { background:var(--accent-soft); color:var(--accent); }
+  .k-improve { background:#f6ecd5; color:#8a6516; }
+  .k-fix { background:var(--hover); color:var(--muted); }
+
+  /* ── 시안 1: "새 소식" 팝오버 ─────────────────────────── */
+  .popover {
+    position:absolute; top:60px; right:14px; width:300px; max-width:calc(100% - 28px);
+    background:var(--ground); border:1px solid var(--line); border-radius:14px;
+    box-shadow:var(--shadow); overflow:hidden; z-index:3;
+  }
+  .pop-h { padding:13px 15px 10px; border-bottom:1px solid var(--line); display:flex; align-items:center; }
+  .pop-h h3 { font-size:var(--base); font-weight:800; }
+  .pop-h .ver { margin-left:auto; color:var(--muted); font-size:var(--xs); }
+  .pop-body { padding:6px 6px; max-height:290px; overflow:auto; }
+  .rel { padding:11px 10px; border-radius:10px; }
+  .rel + .rel { border-top:1px solid var(--line); }
+  .rel .rh { display:flex; align-items:baseline; gap:8px; }
+  .rel .rv { font-weight:800; font-size:var(--sm); }
+  .rel .rd { color:var(--muted); font-size:var(--xs); margin-left:auto; }
+  .rel ul { margin:8px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:7px; }
+  .rel li { display:flex; gap:8px; align-items:flex-start; font-size:var(--sm); }
+  .rel li .kind { flex:none; margin-top:1px; }
+  .pop-f { padding:10px 14px; border-top:1px solid var(--line); text-align:center; }
+  .pop-f a { color:var(--accent); font-weight:700; font-size:var(--sm); text-decoration:none; }
+  .scrim { position:absolute; inset:0; background:rgb(15 25 45 / .18); z-index:2; }
+
+  /* ── 시안 2: 전용 업데이트 노트 페이지 ─────────────────── */
+  .page-head { margin-top:6px; }
+  .page-head h2 { font-size:22px; font-weight:800; letter-spacing:-.02em; }
+  .page-head p { color:var(--muted); font-size:var(--sm); margin-top:4px; }
+  .relrail { position:relative; margin-top:20px; padding-left:24px; }
+  .relrail::before { content:""; position:absolute; left:5px; top:8px; bottom:8px; width:2px; background:var(--line); }
+  .relblock { position:relative; padding-bottom:24px; }
+  .relblock:last-child { padding-bottom:0; }
+  .relblock::before { content:""; position:absolute; left:-24px; top:4px; width:12px; height:12px; border-radius:50%;
+    background:var(--ground); border:2px solid var(--accent); }
+  .relblock.old::before { border-color:var(--line); }
+  .relblock .rh { display:flex; align-items:baseline; gap:8px; }
+  .relblock .rv { font-size:var(--base); font-weight:800; }
+  .relblock .badge-latest { background:var(--accent); color:#fff; border-radius:999px; padding:1px 9px; font-size:11px; font-weight:700; }
+  .relblock .rd { color:var(--muted); font-size:var(--xs); margin-left:auto; }
+  .relblock ul { margin:10px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px; }
+  .relblock li { display:flex; gap:9px; align-items:flex-start; font-size:var(--sm); }
+  .relblock li .kind { flex:none; margin-top:1px; }
+
+  /* ── 시안 3: 첫 진입 릴리스 다이얼로그 ─────────────────── */
+  .modal-scrim { position:absolute; inset:0; background:rgb(15 25 45 / .34); z-index:2; display:grid; place-items:center; padding:20px; }
+  .modal { width:100%; background:var(--ground); border-radius:18px; box-shadow:var(--shadow); overflow:hidden; }
+  .modal .hero { background:var(--accent-soft); padding:22px 20px 18px; text-align:center; }
+  .modal .hero .spark { font-size:30px; }
+  .modal .hero .mv { color:var(--accent); font-weight:700; font-size:var(--xs); margin-top:4px; letter-spacing:.02em; }
+  .modal .hero h3 { font-size:20px; font-weight:800; margin-top:2px; letter-spacing:-.02em; }
+  .modal .mbody { padding:16px 18px 6px; display:flex; flex-direction:column; gap:14px; }
+  .feat { display:flex; gap:12px; align-items:flex-start; }
+  .feat .fi { width:38px; height:38px; border-radius:10px; background:var(--hover); display:grid; place-items:center; font-size:18px; flex:none; }
+  .feat .ft { font-weight:700; font-size:var(--sm); }
+  .feat .fd { color:var(--muted); font-size:var(--xs); margin-top:2px; }
+  .modal .mfoot { padding:14px 18px 18px; display:flex; flex-direction:column; gap:8px; }
+  .btn-primary { background:var(--accent); color:#fff; border:0; border-radius:10px; padding:12px; font:inherit;
+    font-size:var(--sm); font-weight:700; }
+  .btn-ghost { background:none; border:0; color:var(--muted); font:inherit; font-size:var(--xs); padding:4px; }
+
+  /* ── 시안 4: 상단 인라인 배너 ─────────────────────────── */
+  .banner { display:flex; align-items:center; gap:11px; background:var(--accent-soft); border:1px solid #cfdcf1;
+    border-radius:12px; padding:11px 12px; margin-top:16px; }
+  .banner .bi { width:30px; height:30px; border-radius:8px; background:var(--ground); display:grid; place-items:center; font-size:15px; flex:none; }
+  .banner .btxt { font-size:var(--sm); min-width:0; }
+  .banner .btxt b { font-weight:700; }
+  .banner .btxt .more { color:var(--accent); font-weight:700; text-decoration:none; }
+  .banner .bx { margin-left:auto; width:30px; height:30px; border-radius:8px; display:grid; place-items:center;
+    color:var(--muted); background:none; border:0; font-size:16px; flex:none; }
+  .sheet { position:absolute; left:0; right:0; bottom:0; background:var(--ground); border-radius:18px 18px 0 0;
+    box-shadow:var(--shadow); z-index:3; padding:8px 16px 22px; }
+  .sheet .grip { width:40px; height:4px; border-radius:2px; background:var(--line); margin:6px auto 12px; }
+  .sheet h3 { font-size:var(--base); font-weight:800; }
+  .sheet .sv { color:var(--muted); font-size:var(--xs); margin-top:2px; margin-bottom:10px; }
+  .sheet ul { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:9px; }
+  .sheet li { display:flex; gap:9px; align-items:flex-start; font-size:var(--sm); }
+  .sheet li .kind { flex:none; margin-top:1px; }
+
+  @media (max-width:520px){ .grid{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="lead">
+    <h1>업데이트 노트 기능 시안</h1>
+    <p>서비스의 <b>새 기능·개선·수정</b>을 사용자에게 알리는 4가지 방향입니다. 실제 T1 여백 테마 토큰으로 렌더했습니다. 정적 배포(서버 없음)이므로 <b>“어느 버전까지 봤는지”</b>는 <code>localStorage</code>에 저장하는 전제이며, 노트 내용 자체는 다국어 사전(<code>locales/</code>)에 정적으로 싣습니다. 변경 유형은 <span class="kind k-new">신규</span> <span class="kind k-improve">개선</span> <span class="kind k-fix">수정</span> 세 가지로 통일합니다. 상단 탭으로 시안을 전환하세요.</p>
+  </div>
+
+  <div class="switch" role="tablist">
+    <button role="tab" aria-selected="true" data-target="c1">시안 1 · 새 소식 팝오버</button>
+    <button role="tab" aria-selected="false" data-target="c2">시안 2 · 전용 노트 페이지</button>
+    <button role="tab" aria-selected="false" data-target="c3">시안 3 · 첫 진입 다이얼로그</button>
+    <button role="tab" aria-selected="false" data-target="c4">시안 4 · 상단 배너</button>
+  </div>
+
+  <!-- ══════════ 시안 1 ══════════ -->
+  <section class="concept" id="c1" data-active>
+    <div class="note">
+      <b>새 소식 팝오버 — 상단바 종 아이콘.</b> 상단바에 종(🔔) 아이콘을 두고, 안 본 업데이트가 있으면 빨간 점을 띄웁니다. 누르면 최근 릴리스가 팝오버로 펼쳐지고, 열어 본 순간 <code>lastSeenVersion</code>을 저장해 점이 사라집니다. 방해가 가장 적으면서 상시 접근 가능한 표준 패턴입니다.
+      <div class="tags"><span>상단바 상주</span><span>안 본 항목 점 표시</span><span>lastSeenVersion(localStorage)</span><span>기존 화면 위 오버레이</span></div>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="inner">
+        <div class="topbar">
+          <span class="brand">자캐정리</span>
+          <span class="spacer"></span>
+          <span class="iconbtn">🔍</span>
+          <span class="iconbtn">🔔<span class="dot"></span></span>
+          <span class="iconbtn">⚙</span>
+        </div>
+        <div class="grid">
+          <div class="ccard dim"><div class="th" style="background:#6b8cc4">가</div><div><div class="cn">가가</div><div class="cs">15 · 인간</div></div></div>
+          <div class="ccard dim"><div class="th" style="background:#7a7f88">고</div><div><div class="cn">고영희</div><div class="cs">고양이</div></div></div>
+          <div class="ccard dim"><div class="th" style="background:#8a9bb0">구</div><div><div class="cn">구구</div><div class="cs">비둘기</div></div></div>
+          <div class="ccard dim"><div class="th" style="background:#b08a4a">호</div><div><div class="cn">호호할머니</div><div class="cs">인간</div></div></div>
+        </div>
+      </div>
+
+      <!-- 팝오버 -->
+      <div class="scrim"></div>
+      <div class="popover">
+        <div class="pop-h"><h3>새 소식</h3><span class="ver">현재 v1.3</span></div>
+        <div class="pop-body">
+          <div class="rel">
+            <div class="rh"><span class="rv">v1.3</span><span class="rd">7월 12일</span></div>
+            <ul>
+              <li><span class="kind k-new">신규</span><span>세계관에 <b>연표(사건 기록)</b>가 생겼어요.</span></li>
+              <li><span class="kind k-improve">개선</span><span>카드 배경색 팔레트를 넓혔어요.</span></li>
+            </ul>
+          </div>
+          <div class="rel">
+            <div class="rh"><span class="rv">v1.2</span><span class="rd">6월 28일</span></div>
+            <ul>
+              <li><span class="kind k-new">신규</span><span>관계 편집기에서 연결어를 직접 정할 수 있어요.</span></li>
+              <li><span class="kind k-fix">수정</span><span>일본어에서 일부 라벨이 겹치던 문제를 고쳤어요.</span></li>
+            </ul>
+          </div>
+        </div>
+        <div class="pop-f"><a href="#">지난 업데이트 모두 보기 ›</a></div>
+      </div>
+      </div>
+      <div class="caption">
+        <h3>동작 방식</h3>
+        <ul>
+          <li>노트 목록은 <b>정적 상수</b>(다국어 사전에 버전별로 기재). 새 배포 시 항목만 추가.</li>
+          <li>가장 높은 버전 &gt; <code>lastSeenVersion</code>이면 점 표시. 팝오버를 열면 갱신.</li>
+          <li>상단바에 항상 있어 사용자가 원할 때 다시 확인 가능(강제 없음).</li>
+          <li>“모두 보기”는 시안 2의 전용 페이지로 연결 — 두 시안은 <b>짝으로 쓰기 좋음</b>.</li>
+          <li>터치 타깃 44px·카운트 미표시 원칙 유지.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 시안 2 ══════════ -->
+  <section class="concept" id="c2">
+    <div class="note">
+      <b>전용 업데이트 노트 페이지 — <code>/updates</code>.</b> <code>/about</code> 옆에 정적 changelog 페이지를 두고, 버전별로 세로 타임라인에 쌓습니다. 정식 기록 보관소 역할이며 정보/설정에서 링크로 진입합니다. 배포마다 사전에 한 블록만 추가하면 됩니다.
+      <div class="tags"><span>정적 라우트 /[locale]/updates</span><span>버전 세로 타임라인</span><span>유형 태그 분류</span><span>정보 페이지에서 링크</span></div>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="inner">
+        <div class="topbar">
+          <span class="brand" style="font-weight:600;color:var(--muted);font-size:var(--sm)">‹ 서재</span>
+          <span class="spacer"></span>
+        </div>
+        <div class="page-head">
+          <h2>업데이트 노트</h2>
+          <p>자캐정리에 더해진 것들을 최신순으로 기록합니다.</p>
+        </div>
+        <div class="relrail">
+          <div class="relblock">
+            <div class="rh"><span class="rv">v1.3</span><span class="badge-latest">최신</span><span class="rd">2026.07.12</span></div>
+            <ul>
+              <li><span class="kind k-new">신규</span><span>세계관에 <b>연표</b>가 추가되어 사건을 시간순으로 정리할 수 있어요.</span></li>
+              <li><span class="kind k-improve">개선</span><span>카드 배경색 팔레트를 넓히고 대비를 다듬었어요.</span></li>
+              <li><span class="kind k-fix">수정</span><span>긴 이름이 카드에서 잘리던 문제를 고쳤어요.</span></li>
+            </ul>
+          </div>
+          <div class="relblock old">
+            <div class="rh"><span class="rv">v1.2</span><span class="rd">2026.06.28</span></div>
+            <ul>
+              <li><span class="kind k-new">신규</span><span>관계 편집기에서 <b>연결어</b>를 직접 정할 수 있어요.</span></li>
+              <li><span class="kind k-fix">수정</span><span>일본어 일부 라벨이 겹치던 문제를 고쳤어요.</span></li>
+            </ul>
+          </div>
+          <div class="relblock old">
+            <div class="rh"><span class="rv">v1.1</span><span class="rd">2026.06.10</span></div>
+            <ul>
+              <li><span class="kind k-improve">개선</span><span>태블릿·데스크탑 레이아웃을 다듬었어요.</span></li>
+            </ul>
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3>동작 방식</h3>
+        <ul>
+          <li><code>output: "export"</code>와 완벽 호환 — 순수 정적 페이지, 서버 불필요.</li>
+          <li>노트 데이터는 다국어 사전에 버전 배열로. 언어별 문구 번역 가능.</li>
+          <li>정보 페이지·설정·시안 1 팝오버의 “모두 보기”에서 진입.</li>
+          <li>가장 격식 있는 기록 보관소지만, 단독으로는 <b>사용자가 먼저 찾아와야</b> 보임 → 알림(시안 1·3·4)과 병행 권장.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 시안 3 ══════════ -->
+  <section class="concept" id="c3">
+    <div class="note">
+      <b>첫 진입 릴리스 다이얼로그 — “무엇이 새로워졌나”.</b> 새 버전 배포 후 <b>첫 방문 시 한 번</b> 중앙 모달로 핵심 변화를 보여줍니다. 확인하면 그 버전은 다시 뜨지 않습니다. 큰 기능 출시를 확실히 알리고 싶을 때 강력하지만, 매 버전 띄우면 피로하므로 <b>주요 릴리스에만</b> 사용합니다.
+      <div class="tags"><span>버전당 1회 노출</span><span>핵심 3개 하이라이트</span><span>seenReleaseModal(localStorage)</span><span>주요 릴리스 한정</span></div>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="inner">
+        <div class="topbar">
+          <span class="brand">자캐정리</span>
+          <span class="spacer"></span>
+          <span class="iconbtn">🔍</span>
+          <span class="iconbtn">⚙</span>
+        </div>
+        <div class="grid">
+          <div class="ccard dim"><div class="th" style="background:#6b8cc4">가</div><div><div class="cn">가가</div><div class="cs">15 · 인간</div></div></div>
+          <div class="ccard dim"><div class="th" style="background:#7a7f88">고</div><div><div class="cn">고영희</div><div class="cs">고양이</div></div></div>
+        </div>
+      </div>
+
+      <!-- 모달 -->
+      <div class="modal-scrim">
+        <div class="modal">
+          <div class="hero">
+            <div class="spark">✨</div>
+            <div class="mv">업데이트 v1.3</div>
+            <h3>연표가 찾아왔어요</h3>
+          </div>
+          <div class="mbody">
+            <div class="feat">
+              <div class="fi">🕰️</div>
+              <div><div class="ft">세계관 연표</div><div class="fd">사건을 시간순으로 쌓고 참여 자캐를 연결해요.</div></div>
+            </div>
+            <div class="feat">
+              <div class="fi">🎨</div>
+              <div><div class="ft">넓어진 색 팔레트</div><div class="fd">카드 배경색 선택지를 늘리고 대비를 다듬었어요.</div></div>
+            </div>
+            <div class="feat">
+              <div class="fi">🔗</div>
+              <div><div class="ft">관계 연결어 지정</div><div class="fd">‘친구·라이벌’ 같은 연결어를 직접 정할 수 있어요.</div></div>
+            </div>
+          </div>
+          <div class="mfoot">
+            <button class="btn-primary">둘러보기</button>
+            <button class="btn-ghost">전체 노트 보기</button>
+          </div>
+        </div>
+      </div>
+      </div>
+      <div class="caption">
+        <h3>동작 방식</h3>
+        <ul>
+          <li>마운트 후 <code>seenReleaseModal &lt; 현재버전</code>이면 1회 노출, 닫으면 저장.</li>
+          <li>첫 방문자(저장값 없음)에게는 <b>띄우지 않음</b> — 온보딩과 분리.</li>
+          <li>주요 릴리스에만 켜는 플래그로 피로도 관리(마이너 업데이트는 시안 1·4).</li>
+          <li>가장 눈에 띄지만 <b>개입적</b> — 남발 금지. IndexedDB 접근 전 스켈레톤 원칙과 무관(정적 상수 기반).</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 시안 4 ══════════ -->
+  <section class="concept" id="c4">
+    <div class="note">
+      <b>상단 인라인 배너 — 한 줄 요약.</b> 서재 상단에 닫을 수 있는 배너를 얹어 최신 변화를 한 줄로 알립니다. “자세히”를 누르면 바텀시트로 상세가 펼쳐집니다. 모달보다 가볍고 팝오버보다 눈에 띄는 중간 강도이며, 닫으면 그 버전은 다시 안 뜹니다.
+      <div class="tags"><span>서재 상단 상주</span><span>닫기 = 해당 버전 숨김</span><span>자세히 → 바텀시트</span><span>중간 강도 알림</span></div>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="inner">
+        <div class="topbar">
+          <span class="brand">자캐정리</span>
+          <span class="spacer"></span>
+          <span class="iconbtn">🔍</span>
+          <span class="iconbtn">⚙</span>
+        </div>
+
+        <div class="banner">
+          <div class="bi">✨</div>
+          <div class="btxt"><b>v1.3 업데이트</b> — 세계관에 연표가 생겼어요. <a class="more" href="#">자세히</a></div>
+          <button class="bx" aria-label="닫기">✕</button>
+        </div>
+
+        <div class="grid">
+          <div class="ccard dim"><div class="th" style="background:#6b8cc4">가</div><div><div class="cn">가가</div><div class="cs">15 · 인간</div></div></div>
+          <div class="ccard dim"><div class="th" style="background:#7a7f88">고</div><div><div class="cn">고영희</div><div class="cs">고양이</div></div></div>
+          <div class="ccard dim"><div class="th" style="background:#8a9bb0">구</div><div><div class="cn">구구</div><div class="cs">비둘기</div></div></div>
+          <div class="ccard dim"><div class="th" style="background:#b08a4a">호</div><div><div class="cn">호호할머니</div><div class="cs">인간</div></div></div>
+        </div>
+      </div>
+
+      <!-- 바텀시트 (자세히) -->
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="grip"></div>
+        <h3>v1.3 업데이트</h3>
+        <div class="sv">2026.07.12</div>
+        <ul>
+          <li><span class="kind k-new">신규</span><span>세계관에 <b>연표</b>가 추가되어 사건을 시간순으로 정리할 수 있어요.</span></li>
+          <li><span class="kind k-improve">개선</span><span>카드 배경색 팔레트를 넓혔어요.</span></li>
+          <li><span class="kind k-fix">수정</span><span>긴 이름이 카드에서 잘리던 문제를 고쳤어요.</span></li>
+        </ul>
+      </div>
+      </div>
+      <div class="caption">
+        <h3>동작 방식</h3>
+        <ul>
+          <li>최신 버전 &gt; <code>dismissedBanner</code>일 때만 배너 노출. ✕로 닫으면 저장.</li>
+          <li>“자세히”는 바텀시트(<code>components/ui/</code>) — 자작 오버레이 금지 원칙 준수.</li>
+          <li>모달만큼 방해하지 않으면서 팝오버보다 발견성이 높음.</li>
+          <li>시안 2의 전용 페이지와 결합해 “전체 노트 보기” 동선 제공 가능.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.switch button');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.setAttribute('aria-selected', x === t));
+    document.querySelectorAll('.concept').forEach(c => c.removeAttribute('data-active'));
+    document.getElementById(t.dataset.target).setAttribute('data-active','');
+    window.scrollTo({top:0, behavior:'instant'});
+  }));
+</script>
+</body>
+</html>

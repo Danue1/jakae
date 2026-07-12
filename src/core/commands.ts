@@ -1,8 +1,11 @@
 import type {
+  Chapter,
   Character,
+  EventParticipant,
   FieldDefinition,
   Group,
   Relation,
+  TimelineEvent,
   Worldview,
 } from "./model";
 
@@ -15,6 +18,18 @@ export interface InboundRelation {
   characterId: string;
   relation: Relation;
   relationIndex: number;
+}
+
+// 자캐 영구 삭제 시 함께 정리되는 연표 흔적 — 역커맨드가 정확히 되돌리기 위해 보관한다.
+export interface RemovedParticipation {
+  eventId: string;
+  participant: EventParticipant;
+  participantIndex: number;
+}
+
+export interface RemovedPersonalEvent {
+  event: TimelineEvent;
+  eventIndex: number;
 }
 
 export type WorldviewCommand =
@@ -49,12 +64,49 @@ export type WorldviewCommand =
       fieldIndex: number;
       fieldValues: Record<string, string>;
     }
+  | { type: "add-chapter"; chapter: Chapter }
+  | { type: "remove-chapter"; chapterId: string }
+  | {
+      type: "restore-chapter";
+      chapter: Chapter;
+      chapterIndex: number;
+      memberEventIds: string[];
+    }
+  | { type: "rename-chapter"; chapterId: string; name: string; locale: string }
+  | { type: "set-chapter-era"; chapterId: string; era: string }
+  | { type: "set-chapter-description"; chapterId: string; description: string }
+  | { type: "move-chapter"; chapterId: string; targetIndex: number }
+  | { type: "add-event"; event: TimelineEvent }
+  | { type: "remove-event"; eventId: string }
+  | { type: "restore-event"; event: TimelineEvent; eventIndex: number }
+  | { type: "set-event-title"; eventId: string; title: string; locale: string }
+  | { type: "set-event-when"; eventId: string; when: string }
+  | { type: "set-event-place"; eventId: string; place: string }
+  | { type: "set-event-description"; eventId: string; description: string }
+  | { type: "set-event-chapter"; eventId: string; chapterId: string | null }
+  | { type: "move-event"; eventId: string; targetIndex: number }
+  | { type: "add-event-participant"; eventId: string; participant: EventParticipant }
+  | { type: "remove-event-participant"; eventId: string; participantIndex: number }
+  | {
+      type: "restore-event-participant";
+      eventId: string;
+      participant: EventParticipant;
+      participantIndex: number;
+    }
+  | {
+      type: "set-event-participant-role";
+      eventId: string;
+      participantIndex: number;
+      role: string;
+    }
   | { type: "create-character"; character: Character }
   | { type: "delete-character-permanently"; characterId: string }
   | {
       type: "restore-deleted-character";
       character: Character;
       inboundRelations: InboundRelation[];
+      removedParticipations: RemovedParticipation[];
+      removedPersonalEvents: RemovedPersonalEvent[];
     }
   | { type: "rename-character"; characterId: string; name: string; locale: string }
   | {
@@ -135,6 +187,56 @@ function patchWorldview(
     ...state,
     worldview: { ...state.worldview, ...patch, modifiedAt: timestamp },
   };
+}
+
+function requireChapter(state: WorldviewState, chapterId: string): Chapter {
+  const chapter = state.worldview.chapters.find(
+    (existing) => existing.id === chapterId,
+  );
+  if (!chapter) throw new Error(`존재하지 않는 구간: ${chapterId}`);
+  return chapter;
+}
+
+function requireEvent(state: WorldviewState, eventId: string): TimelineEvent {
+  const event = state.worldview.events.find(
+    (existing) => existing.id === eventId,
+  );
+  if (!event) throw new Error(`존재하지 않는 사건: ${eventId}`);
+  return event;
+}
+
+function patchChapter(
+  state: WorldviewState,
+  chapterId: string,
+  patch: Partial<Chapter>,
+  timestamp: number,
+): WorldviewState {
+  return patchWorldview(
+    state,
+    {
+      chapters: state.worldview.chapters.map((existing) =>
+        existing.id === chapterId ? { ...existing, ...patch } : existing,
+      ),
+    },
+    timestamp,
+  );
+}
+
+function patchEvent(
+  state: WorldviewState,
+  eventId: string,
+  patch: Partial<TimelineEvent>,
+  timestamp: number,
+): WorldviewState {
+  return patchWorldview(
+    state,
+    {
+      events: state.worldview.events.map((existing) =>
+        existing.id === eventId ? { ...existing, ...patch } : existing,
+      ),
+    },
+    timestamp,
+  );
 }
 
 function insertAt<Element>(
@@ -487,6 +589,462 @@ export function applyCommand(
       };
     }
 
+    case "add-chapter":
+      return {
+        state: patchWorldview(
+          state,
+          { chapters: [...state.worldview.chapters, command.chapter] },
+          timestamp,
+        ),
+        inverse: { type: "remove-chapter", chapterId: command.chapter.id },
+        dirty: { worldview: true },
+      };
+
+    case "remove-chapter": {
+      const chapterIndex = state.worldview.chapters.findIndex(
+        (chapter) => chapter.id === command.chapterId,
+      );
+      const chapter = state.worldview.chapters[chapterIndex];
+      if (!chapter) throw new Error(`존재하지 않는 구간: ${command.chapterId}`);
+      // 구간을 지워도 소속 사건은 삭제하지 않고 미분류(chapterId: null)로 옮긴다.
+      const memberEventIds = state.worldview.events
+        .filter((event) => event.chapterId === command.chapterId)
+        .map((event) => event.id);
+      return {
+        state: patchWorldview(
+          state,
+          {
+            chapters: state.worldview.chapters.filter(
+              (existing) => existing.id !== command.chapterId,
+            ),
+            events: state.worldview.events.map((event) =>
+              event.chapterId === command.chapterId
+                ? { ...event, chapterId: null }
+                : event,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "restore-chapter",
+          chapter,
+          chapterIndex,
+          memberEventIds,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "restore-chapter": {
+      const memberEventIds = new Set(command.memberEventIds);
+      return {
+        state: patchWorldview(
+          state,
+          {
+            chapters: insertAt(
+              state.worldview.chapters,
+              command.chapterIndex,
+              command.chapter,
+            ),
+            events: state.worldview.events.map((event) =>
+              memberEventIds.has(event.id)
+                ? { ...event, chapterId: command.chapter.id }
+                : event,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: { type: "remove-chapter", chapterId: command.chapter.id },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "rename-chapter": {
+      const chapter = requireChapter(state, command.chapterId);
+      if (command.locale !== state.worldview.primaryLocale) {
+        return {
+          state: patchChapter(
+            state,
+            command.chapterId,
+            {
+              nameTranslations: withLocaleValue(
+                chapter.nameTranslations,
+                command.locale,
+                command.name,
+              ),
+            },
+            timestamp,
+          ),
+          inverse: {
+            type: "rename-chapter",
+            chapterId: command.chapterId,
+            name: chapter.nameTranslations[command.locale] ?? "",
+            locale: command.locale,
+          },
+          dirty: { worldview: true },
+        };
+      }
+      return {
+        state: patchChapter(
+          state,
+          command.chapterId,
+          { name: command.name },
+          timestamp,
+        ),
+        inverse: {
+          type: "rename-chapter",
+          chapterId: command.chapterId,
+          name: chapter.name,
+          locale: command.locale,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-chapter-era": {
+      const chapter = requireChapter(state, command.chapterId);
+      return {
+        state: patchChapter(
+          state,
+          command.chapterId,
+          { era: command.era },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-chapter-era",
+          chapterId: command.chapterId,
+          era: chapter.era,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-chapter-description": {
+      const chapter = requireChapter(state, command.chapterId);
+      return {
+        state: patchChapter(
+          state,
+          command.chapterId,
+          { description: command.description },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-chapter-description",
+          chapterId: command.chapterId,
+          description: chapter.description,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "move-chapter": {
+      const currentIndex = state.worldview.chapters.findIndex(
+        (existing) => existing.id === command.chapterId,
+      );
+      const chapter = state.worldview.chapters[currentIndex];
+      if (!chapter) throw new Error(`존재하지 않는 구간: ${command.chapterId}`);
+      const withoutChapter = state.worldview.chapters.filter(
+        (existing) => existing.id !== command.chapterId,
+      );
+      return {
+        state: patchWorldview(
+          state,
+          { chapters: insertAt(withoutChapter, command.targetIndex, chapter) },
+          timestamp,
+        ),
+        inverse: {
+          type: "move-chapter",
+          chapterId: command.chapterId,
+          targetIndex: currentIndex,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "add-event":
+      return {
+        state: patchWorldview(
+          state,
+          { events: [...state.worldview.events, command.event] },
+          timestamp,
+        ),
+        inverse: { type: "remove-event", eventId: command.event.id },
+        dirty: { worldview: true },
+      };
+
+    case "remove-event": {
+      const eventIndex = state.worldview.events.findIndex(
+        (event) => event.id === command.eventId,
+      );
+      const event = state.worldview.events[eventIndex];
+      if (!event) throw new Error(`존재하지 않는 사건: ${command.eventId}`);
+      return {
+        state: patchWorldview(
+          state,
+          {
+            events: state.worldview.events.filter(
+              (existing) => existing.id !== command.eventId,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: { type: "restore-event", event, eventIndex },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "restore-event":
+      return {
+        state: patchWorldview(
+          state,
+          {
+            events: insertAt(
+              state.worldview.events,
+              command.eventIndex,
+              command.event,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: { type: "remove-event", eventId: command.event.id },
+        dirty: { worldview: true },
+      };
+
+    case "set-event-title": {
+      const event = requireEvent(state, command.eventId);
+      if (command.locale !== state.worldview.primaryLocale) {
+        return {
+          state: patchEvent(
+            state,
+            command.eventId,
+            {
+              titleTranslations: withLocaleValue(
+                event.titleTranslations,
+                command.locale,
+                command.title,
+              ),
+            },
+            timestamp,
+          ),
+          inverse: {
+            type: "set-event-title",
+            eventId: command.eventId,
+            title: event.titleTranslations[command.locale] ?? "",
+            locale: command.locale,
+          },
+          dirty: { worldview: true },
+        };
+      }
+      return {
+        state: patchEvent(
+          state,
+          command.eventId,
+          { title: command.title },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-event-title",
+          eventId: command.eventId,
+          title: event.title,
+          locale: command.locale,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-event-when": {
+      const event = requireEvent(state, command.eventId);
+      return {
+        state: patchEvent(
+          state,
+          command.eventId,
+          { when: command.when },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-event-when",
+          eventId: command.eventId,
+          when: event.when,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-event-place": {
+      const event = requireEvent(state, command.eventId);
+      return {
+        state: patchEvent(
+          state,
+          command.eventId,
+          { place: command.place },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-event-place",
+          eventId: command.eventId,
+          place: event.place,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-event-description": {
+      const event = requireEvent(state, command.eventId);
+      return {
+        state: patchEvent(
+          state,
+          command.eventId,
+          { description: command.description },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-event-description",
+          eventId: command.eventId,
+          description: event.description,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-event-chapter": {
+      const event = requireEvent(state, command.eventId);
+      return {
+        state: patchEvent(
+          state,
+          command.eventId,
+          { chapterId: command.chapterId },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-event-chapter",
+          eventId: command.eventId,
+          chapterId: event.chapterId,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "move-event": {
+      const currentIndex = state.worldview.events.findIndex(
+        (existing) => existing.id === command.eventId,
+      );
+      const event = state.worldview.events[currentIndex];
+      if (!event) throw new Error(`존재하지 않는 사건: ${command.eventId}`);
+      const withoutEvent = state.worldview.events.filter(
+        (existing) => existing.id !== command.eventId,
+      );
+      return {
+        state: patchWorldview(
+          state,
+          { events: insertAt(withoutEvent, command.targetIndex, event) },
+          timestamp,
+        ),
+        inverse: {
+          type: "move-event",
+          eventId: command.eventId,
+          targetIndex: currentIndex,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "add-event-participant": {
+      const event = requireEvent(state, command.eventId);
+      return {
+        state: patchEvent(
+          state,
+          command.eventId,
+          { participants: [...event.participants, command.participant] },
+          timestamp,
+        ),
+        inverse: {
+          type: "remove-event-participant",
+          eventId: command.eventId,
+          participantIndex: event.participants.length,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "remove-event-participant": {
+      const event = requireEvent(state, command.eventId);
+      const participant = event.participants[command.participantIndex];
+      if (!participant)
+        throw new Error(`존재하지 않는 참여자: ${command.participantIndex}`);
+      return {
+        state: patchEvent(
+          state,
+          command.eventId,
+          {
+            participants: [
+              ...event.participants.slice(0, command.participantIndex),
+              ...event.participants.slice(command.participantIndex + 1),
+            ],
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "restore-event-participant",
+          eventId: command.eventId,
+          participant,
+          participantIndex: command.participantIndex,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "restore-event-participant": {
+      const event = requireEvent(state, command.eventId);
+      return {
+        state: patchEvent(
+          state,
+          command.eventId,
+          {
+            participants: insertAt(
+              event.participants,
+              command.participantIndex,
+              command.participant,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "remove-event-participant",
+          eventId: command.eventId,
+          participantIndex: command.participantIndex,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-event-participant-role": {
+      const event = requireEvent(state, command.eventId);
+      const participant = event.participants[command.participantIndex];
+      if (!participant)
+        throw new Error(`존재하지 않는 참여자: ${command.participantIndex}`);
+      return {
+        state: patchEvent(
+          state,
+          command.eventId,
+          {
+            participants: event.participants.map((existing, index) =>
+              index === command.participantIndex
+                ? { ...existing, role: command.role }
+                : existing,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-event-participant-role",
+          eventId: command.eventId,
+          participantIndex: command.participantIndex,
+          role: participant.role,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
     case "create-character":
       return {
         state: { ...state, characters: [...state.characters, command.character] },
@@ -508,12 +1066,59 @@ export function applyCommand(
           }
         });
       }
+      // 연표에서도 이 자캐를 지운다 — 개인 사건은 통째로, 세계관 사건에선 참여자만.
+      const removedPersonalEvents: RemovedPersonalEvent[] = [];
+      const removedParticipations: RemovedParticipation[] = [];
+      state.worldview.events.forEach((event, eventIndex) => {
+        if (event.ownerCharacterId === command.characterId) {
+          removedPersonalEvents.push({ event, eventIndex });
+          return;
+        }
+        event.participants.forEach((participant, participantIndex) => {
+          if (participant.characterId === command.characterId) {
+            removedParticipations.push({
+              eventId: event.id,
+              participant,
+              participantIndex,
+            });
+          }
+        });
+      });
+      const removedPersonalEventIds = new Set(
+        removedPersonalEvents.map((removed) => removed.event.id),
+      );
       let nextState: WorldviewState = {
         ...state,
         characters: state.characters.filter(
           (existing) => existing.id !== command.characterId,
         ),
       };
+      const touchesEvents =
+        removedPersonalEvents.length > 0 || removedParticipations.length > 0;
+      if (touchesEvents) {
+        nextState = patchWorldview(
+          nextState,
+          {
+            events: state.worldview.events
+              .filter((event) => !removedPersonalEventIds.has(event.id))
+              .map((event) =>
+                event.participants.some(
+                  (participant) =>
+                    participant.characterId === command.characterId,
+                )
+                  ? {
+                      ...event,
+                      participants: event.participants.filter(
+                        (participant) =>
+                          participant.characterId !== command.characterId,
+                      ),
+                    }
+                  : event,
+              ),
+          },
+          timestamp,
+        );
+      }
       const affectedCharacterIds = [
         ...new Set(inboundRelations.map((inbound) => inbound.characterId)),
       ];
@@ -532,10 +1137,17 @@ export function applyCommand(
       }
       return {
         state: nextState,
-        inverse: { type: "restore-deleted-character", character, inboundRelations },
+        inverse: {
+          type: "restore-deleted-character",
+          character,
+          inboundRelations,
+          removedParticipations,
+          removedPersonalEvents,
+        },
         dirty: {
           removedCharacterIds: [command.characterId],
           characterIds: affectedCharacterIds,
+          worldview: touchesEvents ? true : undefined,
         },
       };
     }
@@ -563,6 +1175,36 @@ export function applyCommand(
           timestamp,
         );
       }
+      const touchesEvents =
+        command.removedPersonalEvents.length > 0 ||
+        command.removedParticipations.length > 0;
+      if (touchesEvents) {
+        // 참여자 복원 후 개인 사건을 원래 인덱스에 오름차순으로 다시 끼워 넣는다.
+        let events = nextState.worldview.events.map((event) => {
+          const restored = command.removedParticipations.filter(
+            (participation) => participation.eventId === event.id,
+          );
+          if (restored.length === 0) return event;
+          let participants = event.participants;
+          for (const participation of [...restored].sort(
+            (first, second) =>
+              first.participantIndex - second.participantIndex,
+          )) {
+            participants = insertAt(
+              participants,
+              participation.participantIndex,
+              participation.participant,
+            );
+          }
+          return { ...event, participants };
+        });
+        for (const removed of [...command.removedPersonalEvents].sort(
+          (first, second) => first.eventIndex - second.eventIndex,
+        )) {
+          events = insertAt(events, removed.eventIndex, removed.event);
+        }
+        nextState = patchWorldview(nextState, { events }, timestamp);
+      }
       return {
         state: nextState,
         inverse: {
@@ -571,6 +1213,7 @@ export function applyCommand(
         },
         dirty: {
           characterIds: [command.character.id, ...affectedCharacterIds],
+          worldview: touchesEvents ? true : undefined,
         },
       };
     }

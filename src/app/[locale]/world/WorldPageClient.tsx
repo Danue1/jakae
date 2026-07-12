@@ -33,16 +33,18 @@ import {
   libraryHref,
   parseViewState,
   settingsHref,
+  timelineHref,
   worldHref,
 } from "@/react/links";
-import { useLocale } from "@/react/localeContext";
+import { useLocale, useTranslations } from "next-intl";
 import { useOpenWorldview } from "@/react/useOpenWorldview";
 import { useWorldviewStore } from "@/react/useWorldviewStore";
 import { dispatchCommand } from "@/store/worldviewStore";
 import { cn } from "@/lib/utils";
 
 export function WorldPageClient() {
-  const { locale, dictionary } = useLocale();
+  const locale = useLocale();
+  const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
   const worldviewId = searchParams.get("w");
@@ -106,14 +108,14 @@ export function WorldPageClient() {
           className="flex items-center gap-1 rounded-lg py-1 pr-2 text-sm text-muted hover:text-ink"
         >
           <ChevronLeft size={17} aria-hidden="true" />
-          {dictionary.library.title}
+          {t("library.title")}
         </Link>
         <span className="ml-auto">
           <SavedIndicator />
         </span>
         <Link
           href={settingsHref(locale, worldview.id)}
-          aria-label={dictionary.world.settings}
+          aria-label={t("world.settings")}
           className="rounded-lg p-2 text-muted hover:bg-hover hover:text-ink"
         >
           <Settings size={19} aria-hidden="true" />
@@ -125,16 +127,28 @@ export function WorldPageClient() {
       </h1>
       {worldview.era && (
         <p className="mt-0.5 text-sm text-muted">
-          {dictionary.world.eraPrefix} {worldview.era}
+          {t("world.eraPrefix")} {worldview.era}
         </p>
       )}
 
-      <div className="mt-4 flex items-center gap-2 rounded-xl bg-hover px-3.5 py-2.5">
+      <div className="mt-4 flex gap-2">
+        <span className="shrink-0 rounded-full bg-accent px-4 py-1.5 text-sm font-bold text-accent-foreground">
+          {t("timeline.tabCharacters")}
+        </span>
+        <Link
+          href={timelineHref(locale, worldview.id)}
+          className="shrink-0 rounded-full bg-hover px-4 py-1.5 text-sm text-ink hover:bg-accent-soft"
+        >
+          {t("timeline.tabTimeline")}
+        </Link>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 rounded-xl bg-hover px-3.5 py-2.5">
         <Search size={16} aria-hidden="true" className="shrink-0 text-muted" />
         <input
           ref={searchInputRef}
           className="w-full bg-transparent text-sm outline-none placeholder:text-muted"
-          placeholder={dictionary.world.searchPlaceholder}
+          placeholder={t("world.searchPlaceholder")}
           value={searchDraft}
           onChange={(event) => setSearchDraft(event.target.value)}
         />
@@ -147,14 +161,14 @@ export function WorldPageClient() {
           )}
           onClick={() => updateViewState({ view: "all", groupId: null })}
         >
-          {dictionary.world.chipAll}
+          {t("world.chipAll")}
         </button>
         <button
           className={chipClassName(viewState.view === "favorites")}
           onClick={() => updateViewState({ view: "favorites", groupId: null })}
         >
           <Star size={14} aria-hidden="true" className="inline align-[-2px]" />
-          <span className="sr-only">{dictionary.world.favorite}</span>
+          <span className="sr-only">{t("world.favorite")}</span>
         </button>
         {worldview.groups.map((group) => (
           <button
@@ -174,17 +188,17 @@ export function WorldPageClient() {
           className={chipClassName(inTrash, true)}
           onClick={() => updateViewState({ view: "trash", groupId: null })}
         >
-          {dictionary.world.chipTrash}
+          {t("world.chipTrash")}
         </button>
       </div>
 
       {visibleCharacters.length === 0 && inTrash ? (
         <p className="py-20 text-center text-sm text-muted">
-          {dictionary.world.trashEmpty}
+          {t("world.trashEmpty")}
         </p>
       ) : visibleCharacters.length === 0 && hasActiveFilters(viewState) ? (
         <div className="py-20 text-center text-sm text-muted">
-          {dictionary.world.emptyFiltered}
+          {t("world.emptyFiltered")}
           <div className="mt-2">
             <Button
               size="sm"
@@ -192,7 +206,7 @@ export function WorldPageClient() {
                 updateViewState({ view: "all", groupId: null, query: "" })
               }
             >
-              {dictionary.world.resetFilters}
+              {t("world.resetFilters")}
             </Button>
           </div>
         </div>
@@ -213,7 +227,7 @@ export function WorldPageClient() {
               onClick={addCharacter}
             >
               <Plus size={18} aria-hidden="true" />
-              {dictionary.world.addCharacter}
+              {t("world.addCharacter")}
             </button>
           )}
         </div>
@@ -221,7 +235,7 @@ export function WorldPageClient() {
 
       {viewState.view === "all" && (
         <button
-          aria-label={dictionary.world.addCharacter}
+          aria-label={t("world.addCharacter")}
           className="fixed bottom-5 right-5 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-popover sm:hidden"
           onClick={addCharacter}
         >
@@ -237,15 +251,17 @@ export function WorldPageClient() {
       >
         <AlertDialogContent>
           <AlertDialogTitle>
-            {dictionary.world.deleteCharacterTitle(
-              pendingDelete ? characterDisplayName(pendingDelete, locale) || "-" : "-",
-            )}
+            {t("world.deleteCharacterTitle", {
+              name: pendingDelete
+                ? characterDisplayName(pendingDelete, locale) || "-"
+                : "-",
+            })}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {dictionary.world.deleteCharacterDescription}
+            {t("world.deleteCharacterDescription")}
           </AlertDialogDescription>
           <AlertDialogFooter>
-            <AlertDialogCancel>{dictionary.common.cancel}</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-danger"
               onClick={() => {
@@ -257,7 +273,7 @@ export function WorldPageClient() {
                 setPendingDelete(null);
               }}
             >
-              {dictionary.world.deleteForever}
+              {t("world.deleteForever")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

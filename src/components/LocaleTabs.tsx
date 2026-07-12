@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { getDictionary, LOCALES, type Locale } from "../locales";
+import { LOCALE_NAMES, LOCALES, type Locale } from "../locales";
 
 // 언어별 값 편집 슬롯 전환 — UI 언어와 무관하게 그 자리에서 대상 언어를 고른다.
 export function LocaleTabs({
@@ -27,7 +27,7 @@ export function LocaleTabs({
             key={availableLocale}
             aria-pressed={selected}
             title={
-              getDictionary(availableLocale).languageName +
+              LOCALE_NAMES[availableLocale] +
               (availableLocale === primaryLocale ? ` · ${primaryLabel}` : "")
             }
             className={cn(

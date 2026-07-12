@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { getDictionary, isLocale, LOCALES, type Locale } from "@/locales";
+import { isLocale, LOCALE_NAMES, LOCALES, type Locale } from "@/locales";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { worldviewDisplayName, type FieldDefinition } from "@/core/model";
 import { guardedKeyDownHandler } from "@/react/inputGuards";
 import { worldHref } from "@/react/links";
-import { useLocale } from "@/react/localeContext";
+import { useLocale, useTranslations } from "next-intl";
 import { useOpenWorldview } from "@/react/useOpenWorldview";
 import { useWorldviewStore } from "@/react/useWorldviewStore";
 import { dispatchCommand } from "@/store/worldviewStore";
@@ -42,7 +42,8 @@ function SectionCaption({ children }: { children: string }) {
 }
 
 export function SettingsPageClient() {
-  const { locale, dictionary } = useLocale();
+  const locale = useLocale();
+  const t = useTranslations();
   const searchParams = useSearchParams();
   const worldviewId = searchParams.get("w");
 
@@ -108,14 +109,14 @@ export function SettingsPageClient() {
       </div>
 
       <h1 className="mt-3 text-2xl font-extrabold tracking-tight">
-        {dictionary.settings.title}
+        {t("settings.title")}
       </h1>
 
       <section className="mt-7">
-        <SectionCaption>{dictionary.settings.basicInfo}</SectionCaption>
+        <SectionCaption>{t("settings.basicInfo")}</SectionCaption>
         <div className="mt-1 flex items-center gap-2 border-b border-line py-1.5">
           <span className="w-24 shrink-0 text-sm text-muted">
-            {dictionary.settings.nameLabel}
+            {t("settings.nameLabel")}
           </span>
           <Input
             placeholder={
@@ -145,12 +146,12 @@ export function SettingsPageClient() {
                 : Boolean(worldview.nameTranslations[availableLocale]),
             )}
             primaryLocale={worldview.primaryLocale}
-            primaryLabel={dictionary.settings.primaryLocaleLabel}
+            primaryLabel={t("settings.primaryLocaleLabel")}
           />
         </div>
         <div className="flex items-center gap-2 border-b border-line py-1.5">
           <span className="w-24 shrink-0 text-sm text-muted">
-            {dictionary.settings.eraLabel}
+            {t("settings.eraLabel")}
           </span>
           <Input
             placeholder="-"
@@ -165,7 +166,7 @@ export function SettingsPageClient() {
         </div>
         <div className="flex items-center gap-2 py-1.5">
           <span className="w-24 shrink-0 text-sm text-muted">
-            {dictionary.settings.primaryLocaleLabel}
+            {t("settings.primaryLocaleLabel")}
           </span>
           <Select
             value={isLocale(worldview.primaryLocale) ? worldview.primaryLocale : undefined}
@@ -179,7 +180,7 @@ export function SettingsPageClient() {
             <SelectContent>
               {LOCALES.map((availableLocale) => (
                 <SelectItem key={availableLocale} value={availableLocale}>
-                  {getDictionary(availableLocale).languageName}
+                  {LOCALE_NAMES[availableLocale]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -188,8 +189,8 @@ export function SettingsPageClient() {
       </section>
 
       <section className="mt-9">
-        <SectionCaption>{dictionary.settings.fieldsTitle}</SectionCaption>
-        <p className="mt-1 text-xs text-muted">{dictionary.settings.fieldsHint}</p>
+        <SectionCaption>{t("settings.fieldsTitle")}</SectionCaption>
+        <p className="mt-1 text-xs text-muted">{t("settings.fieldsHint")}</p>
         <div className="mt-2">
           {worldview.fieldDefinitions.map((fieldDefinition, fieldIndex) => (
             <div
@@ -198,7 +199,7 @@ export function SettingsPageClient() {
             >
               <div className="flex flex-col">
                 <button
-                  aria-label={dictionary.settings.moveUp}
+                  aria-label={t("settings.moveUp")}
                   disabled={fieldIndex === 0}
                   className="rounded p-0.5 text-muted hover:text-ink disabled:opacity-30"
                   onClick={() =>
@@ -212,7 +213,7 @@ export function SettingsPageClient() {
                   <ChevronUp size={15} aria-hidden="true" />
                 </button>
                 <button
-                  aria-label={dictionary.settings.moveDown}
+                  aria-label={t("settings.moveDown")}
                   disabled={fieldIndex === worldview.fieldDefinitions.length - 1}
                   className="rounded p-0.5 text-muted hover:text-ink disabled:opacity-30"
                   onClick={() =>
@@ -228,7 +229,7 @@ export function SettingsPageClient() {
               </div>
               <Input
                 value={fieldDefinition.label}
-                placeholder={dictionary.settings.fieldNamePlaceholder}
+                placeholder={t("settings.fieldNamePlaceholder")}
                 onChange={(event) =>
                   dispatchCommand({
                     type: "rename-field-definition",
@@ -240,9 +241,9 @@ export function SettingsPageClient() {
               <Button
                 variant="subtle"
                 size="icon"
-                aria-label={dictionary.settings.localizedToggle}
+                aria-label={t("settings.localizedToggle")}
                 aria-pressed={fieldDefinition.localized}
-                title={dictionary.settings.localizedToggle}
+                title={t("settings.localizedToggle")}
                 className={cn(fieldDefinition.localized && "text-accent")}
                 onClick={() =>
                   dispatchCommand({
@@ -259,7 +260,7 @@ export function SettingsPageClient() {
                 size="sm"
                 onClick={() => setPendingDeleteField(fieldDefinition)}
               >
-                {dictionary.common.delete}
+                {t("common.delete")}
               </Button>
             </div>
           ))}
@@ -267,20 +268,20 @@ export function SettingsPageClient() {
         <div className="mt-2.5 flex items-center gap-1.5">
           <Input
             className="bg-hover"
-            placeholder={dictionary.settings.fieldNamePlaceholder}
+            placeholder={t("settings.fieldNamePlaceholder")}
             value={newFieldLabel}
             onChange={(event) => setNewFieldLabel(event.target.value)}
             onKeyDown={guardedKeyDownHandler({ Enter: addField })}
           />
           <Button size="sm" onClick={addField}>
             <Plus size={15} aria-hidden="true" />
-            {dictionary.settings.addField}
+            {t("settings.addField")}
           </Button>
         </div>
       </section>
 
       <section className="mt-9">
-        <SectionCaption>{dictionary.settings.groupsTitle}</SectionCaption>
+        <SectionCaption>{t("settings.groupsTitle")}</SectionCaption>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {worldview.groups.map((group) => (
             <span
@@ -303,22 +304,22 @@ export function SettingsPageClient() {
         <div className="mt-2.5 flex items-center gap-1.5">
           <Input
             className="bg-hover"
-            placeholder={dictionary.settings.groupPlaceholder}
+            placeholder={t("settings.groupPlaceholder")}
             value={newGroupName}
             onChange={(event) => setNewGroupName(event.target.value)}
             onKeyDown={guardedKeyDownHandler({ Enter: addGroup })}
           />
           <Button size="sm" onClick={addGroup}>
             <Plus size={15} aria-hidden="true" />
-            {dictionary.settings.addGroup}
+            {t("settings.addGroup")}
           </Button>
         </div>
       </section>
 
       <section className="mt-9">
-        <SectionCaption>{dictionary.settings.connectorsTitle}</SectionCaption>
+        <SectionCaption>{t("settings.connectorsTitle")}</SectionCaption>
         <p className="mt-1 text-xs text-muted">
-          {dictionary.settings.connectorsHint}
+          {t("settings.connectorsHint")}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {worldview.connectors.map((connector) => (
@@ -347,14 +348,14 @@ export function SettingsPageClient() {
         <div className="mt-2.5 flex items-center gap-1.5">
           <Input
             className="bg-hover"
-            placeholder={dictionary.settings.connectorPlaceholder}
+            placeholder={t("settings.connectorPlaceholder")}
             value={newConnector}
             onChange={(event) => setNewConnector(event.target.value)}
             onKeyDown={guardedKeyDownHandler({ Enter: addConnector })}
           />
           <Button size="sm" onClick={addConnector}>
             <Plus size={15} aria-hidden="true" />
-            {dictionary.settings.addConnector}
+            {t("settings.addConnector")}
           </Button>
         </div>
       </section>
@@ -367,13 +368,15 @@ export function SettingsPageClient() {
       >
         <AlertDialogContent>
           <AlertDialogTitle>
-            {dictionary.settings.deleteFieldTitle(pendingDeleteField?.label ?? "")}
+            {t("settings.deleteFieldTitle", {
+              label: pendingDeleteField?.label ?? "",
+            })}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {dictionary.settings.deleteFieldDescription}
+            {t("settings.deleteFieldDescription")}
           </AlertDialogDescription>
           <AlertDialogFooter>
-            <AlertDialogCancel>{dictionary.common.cancel}</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-danger"
               onClick={() => {
@@ -385,7 +388,7 @@ export function SettingsPageClient() {
                 setPendingDeleteField(null);
               }}
             >
-              {dictionary.common.delete}
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

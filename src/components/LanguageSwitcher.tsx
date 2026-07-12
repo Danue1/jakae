@@ -1,6 +1,7 @@
 "use client";
 
 import { Globe } from "lucide-react";
+import { useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -8,19 +9,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getDictionary, LOCALES } from "../locales";
+import { LOCALE_NAMES, LOCALES } from "../locales";
 import { libraryHref } from "../react/links";
-import { useLocale } from "../react/localeContext";
 
 export function LanguageSwitcher() {
-  const { locale, dictionary } = useLocale();
+  const locale = useLocale();
   const router = useRouter();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-full bg-hover px-3.5 py-1.5 text-sm text-muted outline-none hover:text-ink">
         <Globe size={16} aria-hidden="true" />
-        {dictionary.languageName}
+        {LOCALE_NAMES[locale]}
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         {LOCALES.map((availableLocale) => (
@@ -29,7 +29,7 @@ export function LanguageSwitcher() {
             className={availableLocale === locale ? "font-bold text-accent" : ""}
             onSelect={() => router.push(libraryHref(availableLocale))}
           >
-            {getDictionary(availableLocale).languageName}
+            {LOCALE_NAMES[availableLocale]}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

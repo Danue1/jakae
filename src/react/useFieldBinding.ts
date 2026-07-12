@@ -1,7 +1,7 @@
+import { useLocale } from "next-intl";
 import type { ChangeEvent } from "react";
 import { dispatchCommand } from "../store/worldviewStore";
 import type { WorldviewStoreState } from "../store/worldviewStore";
-import { useLocale } from "./localeContext";
 import { useWorldviewStore } from "./useWorldviewStore";
 
 function editsTranslation(
@@ -29,7 +29,7 @@ export function useFieldBinding(
   placeholder: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
 } {
-  const { locale: interfaceLocale } = useLocale();
+  const interfaceLocale = useLocale();
   const locale = editingLocale ?? interfaceLocale;
   const value = useWorldviewStore((state) => {
     const character = state.characters.find(

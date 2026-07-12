@@ -1,8 +1,10 @@
 import type {
+  Chapter,
   Character,
   CharacterAppearance,
   FieldDefinition,
   Relation,
+  TimelineEvent,
   Worldview,
 } from "./model";
 
@@ -12,12 +14,19 @@ import type {
 export interface LegacyWorldviewRecord
   extends Omit<
     Worldview,
-    "connectors" | "fieldDefinitions" | "primaryLocale" | "nameTranslations"
+    | "connectors"
+    | "fieldDefinitions"
+    | "primaryLocale"
+    | "nameTranslations"
+    | "chapters"
+    | "events"
   > {
   primaryLocale?: string;
   nameTranslations?: Record<string, string>;
   connectors?: string[];
   particles?: string[];
+  chapters?: Chapter[];
+  events?: TimelineEvent[];
   fieldDefinitions: (Omit<FieldDefinition, "localized"> & {
     localized?: boolean;
     builtIn?: boolean;
@@ -55,6 +64,21 @@ export function normalizeWorldviewRecord(
     })),
     connectors: record.connectors ?? record.particles ?? [],
     groups: record.groups,
+    chapters: record.chapters ?? [],
+    events: (record.events ?? []).map((event) => ({
+      id: event.id,
+      chapterId: event.chapterId ?? null,
+      ownerCharacterId: event.ownerCharacterId ?? null,
+      title: event.title,
+      titleTranslations: event.titleTranslations ?? {},
+      when: event.when ?? "",
+      place: event.place ?? "",
+      description: event.description ?? "",
+      participants: (event.participants ?? []).map((participant) => ({
+        characterId: participant.characterId,
+        role: participant.role ?? "",
+      })),
+    })),
     createdAt: record.createdAt,
     modifiedAt: record.modifiedAt,
   };

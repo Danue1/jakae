@@ -7,6 +7,10 @@ export function libraryHref(locale: Locale): string {
   return `/${locale}/`;
 }
 
+export function updatesHref(locale: Locale): string {
+  return `/${locale}/updates/`;
+}
+
 export function worldHref(
   locale: Locale,
   worldviewId: string,
@@ -32,6 +36,26 @@ export function characterHref(
 
 export function settingsHref(locale: Locale, worldviewId: string): string {
   return `/${locale}/settings/?w=${worldviewId}`;
+}
+
+export function timelineHref(locale: Locale, worldviewId: string): string {
+  return `/${locale}/timeline/?w=${worldviewId}`;
+}
+
+export function chapterHref(
+  locale: Locale,
+  worldviewId: string,
+  chapterId: string,
+): string {
+  return `/${locale}/chapter/?w=${worldviewId}&c=${chapterId}`;
+}
+
+export function eventHref(
+  locale: Locale,
+  worldviewId: string,
+  eventId: string,
+): string {
+  return `/${locale}/event/?w=${worldviewId}&e=${eventId}`;
 }
 
 interface SearchParamsReader {

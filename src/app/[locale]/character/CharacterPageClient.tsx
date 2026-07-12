@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/Avatar";
 import { BackgroundPicker } from "@/components/BackgroundPicker";
+import { CharacterTimeline } from "@/components/CharacterTimeline";
 import { LocaleTabs } from "@/components/LocaleTabs";
 import { MissingWorldview } from "@/components/MissingWorldview";
 import { RelationEditor } from "@/components/RelationEditor";
@@ -35,7 +36,7 @@ import {
 import { LOCALES, type Locale } from "@/locales";
 import { characterHref, settingsHref, worldHref } from "@/react/links";
 import { useFieldBinding } from "@/react/useFieldBinding";
-import { useLocale } from "@/react/localeContext";
+import { useLocale, useTranslations } from "next-intl";
 import { useOpenWorldview } from "@/react/useOpenWorldview";
 import { useWorldviewStore } from "@/react/useWorldviewStore";
 import {
@@ -63,7 +64,7 @@ function ProfileFieldRow({
   primaryLocale: string;
   primaryLabel: string;
 }) {
-  const { locale } = useLocale();
+  const locale = useLocale();
   const [editingLocale, setEditingLocale] = useState<Locale>(locale);
   const binding = useFieldBinding(
     character.id,
@@ -98,7 +99,8 @@ function ProfileFieldRow({
 }
 
 export function CharacterPageClient() {
-  const { locale, dictionary } = useLocale();
+  const locale = useLocale();
+  const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
   const worldviewId = searchParams.get("w");
@@ -144,7 +146,7 @@ export function CharacterPageClient() {
   const duplicateAndOpen = async () => {
     const copiedCharacterId = await duplicateCharacter(
       character.id,
-      dictionary.character.copySuffix,
+      t("character.copySuffix"),
     );
     if (copiedCharacterId)
       router.push(characterHref(locale, worldview.id, copiedCharacterId));
@@ -170,8 +172,8 @@ export function CharacterPageClient() {
           size="icon"
           aria-label={
             character.favorite
-              ? dictionary.world.unfavorite
-              : dictionary.world.favorite
+              ? t("world.unfavorite")
+              : t("world.favorite")
           }
           className={cn(character.favorite && "text-star")}
           onClick={() =>
@@ -190,18 +192,18 @@ export function CharacterPageClient() {
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
-            aria-label={dictionary.common.more}
+            aria-label={t("common.more")}
             className="rounded-lg p-2 text-muted outline-none hover:bg-hover hover:text-ink"
           >
             <EllipsisVertical size={19} aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem onSelect={() => void duplicateAndOpen()}>
-              {dictionary.character.duplicate}
+              {t("character.duplicate")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-danger" onSelect={moveToTrash}>
-              {dictionary.character.moveToTrash}
+              {t("character.moveToTrash")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -210,7 +212,7 @@ export function CharacterPageClient() {
       <div className="mt-4 lg:grid lg:grid-cols-detail lg:gap-10">
         <div className="mx-auto w-full max-w-sm lg:mx-0 lg:max-w-none">
           <button
-            aria-label={dictionary.character.attachImage}
+            aria-label={t("character.attachImage")}
             className="block w-full rounded-card hover:opacity-90"
             onClick={() => imageInputRef.current?.click()}
           >
@@ -236,8 +238,8 @@ export function CharacterPageClient() {
               className="text-2xl font-extrabold tracking-tight"
               placeholder={
                 nameLocale !== worldview.primaryLocale
-                  ? character.name || dictionary.character.namePlaceholder
-                  : dictionary.character.namePlaceholder
+                  ? character.name || t("character.namePlaceholder")
+                  : t("character.namePlaceholder")
               }
               value={
                 nameLocale !== worldview.primaryLocale
@@ -262,19 +264,19 @@ export function CharacterPageClient() {
                   : Boolean(character.nameTranslations[availableLocale]),
               )}
               primaryLocale={worldview.primaryLocale}
-              primaryLabel={dictionary.settings.primaryLocaleLabel}
+              primaryLabel={t("settings.primaryLocaleLabel")}
             />
           </div>
 
           <section className="mt-5">
             <div className="flex items-baseline justify-between">
-              <SectionCaption>{dictionary.character.profile}</SectionCaption>
+              <SectionCaption>{t("character.profile")}</SectionCaption>
               <Link
                 href={settingsHref(locale, worldview.id)}
                 className="flex items-center gap-1 text-xs text-accent"
               >
                 <SlidersHorizontal size={13} aria-hidden="true" />
-                {dictionary.character.manageFields}
+                {t("character.manageFields")}
               </Link>
             </div>
             {worldview.fieldDefinitions.map((fieldDefinition) => (
@@ -283,7 +285,7 @@ export function CharacterPageClient() {
                 character={character}
                 fieldDefinition={fieldDefinition}
                 primaryLocale={worldview.primaryLocale}
-                primaryLabel={dictionary.settings.primaryLocaleLabel}
+                primaryLabel={t("settings.primaryLocaleLabel")}
               />
             ))}
           </section>
@@ -291,15 +293,15 @@ export function CharacterPageClient() {
 
         <div className="mt-7 flex flex-col gap-7 lg:mt-0">
           <section>
-            <SectionCaption>{dictionary.character.personality}</SectionCaption>
+            <SectionCaption>{t("character.personality")}</SectionCaption>
             <TagEditor character={character} />
           </section>
 
           <section>
-            <SectionCaption>{dictionary.character.story}</SectionCaption>
+            <SectionCaption>{t("character.story")}</SectionCaption>
             <Textarea
               className="min-h-36"
-              placeholder={dictionary.character.storyPlaceholder}
+              placeholder={t("character.storyPlaceholder")}
               value={character.story}
               onChange={(event) =>
                 dispatchCommand({
@@ -312,7 +314,7 @@ export function CharacterPageClient() {
           </section>
 
           <section>
-            <SectionCaption>{dictionary.character.relations}</SectionCaption>
+            <SectionCaption>{t("character.relations")}</SectionCaption>
             <RelationEditor
               worldview={worldview}
               character={character}
@@ -320,9 +322,16 @@ export function CharacterPageClient() {
             />
           </section>
 
+          <section>
+            <SectionCaption>
+              {t("timeline.characterSectionTitle")}
+            </SectionCaption>
+            <CharacterTimeline worldview={worldview} character={character} />
+          </section>
+
           {worldview.groups.length > 0 && (
             <section>
-              <SectionCaption>{dictionary.character.groups}</SectionCaption>
+              <SectionCaption>{t("character.groups")}</SectionCaption>
               <div className="flex flex-wrap gap-1.5">
                 {worldview.groups.map((group) => {
                   const assigned = character.groupIds.includes(group.id);

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/Avatar";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { UpdatesBell } from "@/components/UpdatesBell";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,9 +23,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useLocale, useTranslations } from "next-intl";
 import { worldviewDisplayName, type Worldview } from "@/core/model";
+import { getSeedContent } from "@/locales";
 import { worldHref } from "@/react/links";
-import { useLocale } from "@/react/localeContext";
 import {
   createAndSaveWorldview,
   deleteWorldview,
@@ -34,17 +36,19 @@ import {
 import { seedSampleWorldviewIfEmpty } from "@/store/sample";
 
 export default function LibraryPage() {
-  const { locale, dictionary } = useLocale();
+  const locale = useLocale();
+  const t = useTranslations();
+  const seed = getSeedContent(locale);
   const router = useRouter();
   const [entries, setEntries] = useState<WorldviewListEntry[] | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Worldview | null>(null);
 
   useEffect(() => {
     void (async () => {
-      await seedSampleWorldviewIfEmpty(dictionary.seed, locale);
+      await seedSampleWorldviewIfEmpty(seed, locale);
       setEntries(await listWorldviewEntries());
     })();
-  }, [dictionary, locale]);
+  }, [seed, locale]);
 
   const formatDate = (timestamp: number) =>
     new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(
@@ -53,10 +57,10 @@ export default function LibraryPage() {
 
   const createAndOpen = async () => {
     const worldview = await createAndSaveWorldview(
-      dictionary.library.newWorldviewName,
+      t("library.newWorldviewName"),
       {
-        fieldLabels: dictionary.seed.fieldLabels,
-        connectors: dictionary.seed.connectors,
+        fieldLabels: seed.fieldLabels,
+        connectors: seed.connectors,
       },
       locale,
     );
@@ -74,9 +78,10 @@ export default function LibraryPage() {
     <div className="mx-auto max-w-2xl px-5 pb-24 pt-10 sm:pt-14">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-extrabold tracking-tight">
-          {dictionary.library.title}
+          {t("library.title")}
         </h1>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <UpdatesBell />
           <LanguageSwitcher />
         </div>
       </div>
@@ -88,13 +93,13 @@ export default function LibraryPage() {
           onClick={() => void createAndOpen()}
         >
           <Plus size={17} aria-hidden="true" />
-          {dictionary.library.newWorldview}
+          {t("library.newWorldview")}
         </Button>
       </div>
 
       {entries && entries.length === 0 && (
         <p className="mt-12 text-center text-sm text-muted">
-          {dictionary.library.empty}
+          {t("library.empty")}
         </p>
       )}
 
@@ -121,14 +126,16 @@ export default function LibraryPage() {
               </span>
               <span className="text-xs text-muted">
                 {worldview.era
-                  ? `${dictionary.world.eraPrefix} ${worldview.era} · `
+                  ? `${t("world.eraPrefix")} ${worldview.era} · `
                   : ""}
-                {dictionary.library.modified(formatDate(worldview.modifiedAt))}
+                {t("library.modified", {
+                  date: formatDate(worldview.modifiedAt),
+                })}
               </span>
             </Link>
             <DropdownMenu>
               <DropdownMenuTrigger
-                aria-label={dictionary.common.more}
+                aria-label={t("common.more")}
                 className="absolute right-3 top-3 rounded-lg p-1.5 text-muted outline-none hover:bg-ground hover:text-ink"
               >
                 <EllipsisVertical size={17} aria-hidden="true" />
@@ -138,7 +145,7 @@ export default function LibraryPage() {
                   className="text-danger"
                   onSelect={() => setPendingDelete(worldview)}
                 >
-                  {dictionary.common.delete}
+                  {t("common.delete")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -154,22 +161,22 @@ export default function LibraryPage() {
       >
         <AlertDialogContent>
           <AlertDialogTitle>
-            {dictionary.library.deleteWorldviewTitle(
-              pendingDelete
+            {t("library.deleteWorldviewTitle", {
+              name: pendingDelete
                 ? worldviewDisplayName(pendingDelete, locale) || "-"
                 : "-",
-            )}
+            })}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {dictionary.library.deleteWorldviewDescription}
+            {t("library.deleteWorldviewDescription")}
           </AlertDialogDescription>
           <AlertDialogFooter>
-            <AlertDialogCancel>{dictionary.common.cancel}</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-danger"
               onClick={() => void confirmDelete()}
             >
-              {dictionary.common.delete}
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

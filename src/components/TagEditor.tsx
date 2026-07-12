@@ -5,12 +5,12 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { Character } from "../core/model";
+import { useTranslations } from "next-intl";
 import { guardedKeyDownHandler } from "../react/inputGuards";
-import { useLocale } from "../react/localeContext";
 import { dispatchCommand } from "../store/worldviewStore";
 
 export function TagEditor({ character }: { character: Character }) {
-  const { dictionary } = useLocale();
+  const t = useTranslations();
   const [draft, setDraft] = useState("");
 
   const commitDraft = () => {
@@ -39,7 +39,7 @@ export function TagEditor({ character }: { character: Character }) {
         <Badge key={tag} className="py-1 text-sm">
           {tag}
           <button
-            aria-label={`${tag} · ${dictionary.common.delete}`}
+            aria-label={`${tag} · ${t("common.delete")}`}
             className="-my-2 -mr-2 p-2 opacity-60 hover:opacity-100"
             onClick={() => removeTag(tag)}
           >
@@ -49,7 +49,7 @@ export function TagEditor({ character }: { character: Character }) {
       ))}
       <Input
         className="min-w-32 flex-1"
-        placeholder={dictionary.character.tagPlaceholder}
+        placeholder={t("character.tagPlaceholder")}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={commitDraft}

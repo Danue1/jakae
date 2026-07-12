@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>타임라인 기능 시안</title>
+<style>
+  /* ── T1 여백 테마 토큰 (src/theme.css와 동일) ───────────────── */
+  :root {
+    --ground:#ffffff; --ink:#1c2128; --muted:#5e6b7c; --line:#dfe4ec;
+    --hover:#f5f7fa; --accent:#3e6db5; --accent-soft:#e7eef9;
+    --accent-fg:#ffffff; --star:#d0952f; --danger:#b4533a;
+    --radius:10px; --shadow:0 10px 28px rgb(10 20 40 / .18);
+    --font:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Noto Sans KR",-apple-system,sans-serif;
+    --xs:13px; --sm:15px; --base:17px;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:#eef1f5; color:var(--ink); font-family:var(--font);
+    font-size:var(--sm); line-height:1.55; word-break:keep-all; overflow-wrap:break-word;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,p { margin:0; }
+
+  /* 페이지 셸 */
+  .page { max-width:1100px; margin:0 auto; padding:28px 20px 80px; }
+  .lead h1 { font-size:26px; font-weight:800; letter-spacing:-.02em; }
+  .lead p { margin-top:6px; color:var(--muted); font-size:var(--sm); max-width:62ch; }
+
+  /* 시안 전환 탭 */
+  .switch { display:flex; flex-wrap:wrap; gap:8px; margin:22px 0 8px; position:sticky; top:0;
+    background:#eef1f5; padding:10px 0; z-index:5; }
+  .switch button {
+    border:1px solid var(--line); background:var(--ground); color:var(--ink);
+    border-radius:999px; padding:8px 15px; font:inherit; font-size:var(--sm); cursor:pointer;
+  }
+  .switch button[aria-selected="true"] { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; }
+
+  .concept { display:none; }
+  .concept[data-active] { display:block; }
+
+  .note {
+    background:var(--accent-soft); border-radius:12px; padding:14px 16px; margin-bottom:18px;
+    font-size:var(--sm); color:#22364f;
+  }
+  .note b { color:var(--ink); }
+  .note .tags { margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
+  .note .tags span { background:var(--ground); border:1px solid #c9d8ef; color:var(--accent);
+    border-radius:999px; padding:2px 10px; font-size:var(--xs); font-weight:600; }
+
+  /* 기기 프레임 (실제 앱 폭 감각) */
+  .stage { display:flex; flex-wrap:wrap; gap:26px; align-items:flex-start; }
+  .phone {
+    width:400px; max-width:100%; background:var(--ground); border-radius:22px;
+    box-shadow:var(--shadow); overflow:hidden; border:1px solid var(--line);
+  }
+  .phone .inner { padding:18px 16px 26px; }
+  .caption { width:260px; min-width:220px; flex:1; color:var(--muted); font-size:var(--sm); }
+  .caption h3 { color:var(--ink); font-size:var(--base); font-weight:700; margin-bottom:6px; }
+  .caption ul { margin:10px 0 0; padding-left:18px; }
+  .caption li { margin:5px 0; }
+
+  /* 앱 상단 바 */
+  .topbar { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:var(--sm); }
+  .topbar .back { display:flex; align-items:center; gap:4px; }
+  .topbar .spacer { margin-left:auto; }
+  .icon { width:19px; height:19px; display:inline-block; vertical-align:-4px; }
+  .wv-title { margin-top:12px; font-size:24px; font-weight:800; letter-spacing:-.02em; }
+  .wv-era { color:var(--muted); font-size:var(--sm); margin-top:2px; }
+
+  /* 세계관 뷰 전환 칩 (자캐 | 연표) */
+  .viewchips { display:flex; gap:8px; margin-top:14px; }
+  .viewchips button { border:0; background:var(--hover); color:var(--ink); border-radius:999px;
+    padding:7px 16px; font:inherit; font-size:var(--sm); cursor:pointer; }
+  .viewchips button[aria-selected="true"] { background:var(--accent); color:#fff; font-weight:700; }
+
+  /* ── 세로 레일 타임라인 ───────────────────────────── */
+  .rail { position:relative; margin-top:18px; padding-left:26px; }
+  .rail::before { content:""; position:absolute; left:6px; top:6px; bottom:6px; width:2px; background:var(--line); }
+  .ev { position:relative; padding:0 0 22px; }
+  .ev:last-child { padding-bottom:0; }
+  .ev::before {
+    content:""; position:absolute; left:-26px; top:5px; width:12px; height:12px; border-radius:50%;
+    background:var(--ground); border:2px solid var(--accent);
+  }
+  .ev.soft::before { border-color:var(--line); }
+  .ev .when { font-size:var(--xs); font-weight:700; color:var(--accent); letter-spacing:.01em; }
+  .ev .etitle { font-size:var(--base); font-weight:700; margin-top:2px; }
+  .ev .edesc { color:var(--muted); font-size:var(--sm); margin-top:3px; }
+  .ev .who { display:flex; align-items:center; gap:6px; margin-top:9px; }
+
+  /* 아바타 */
+  .av { width:26px; height:26px; border-radius:8px; display:grid; place-items:center;
+    font-size:12px; font-weight:700; color:#fff; border:2px solid var(--ground); }
+  .av.lg { width:34px; height:34px; border-radius:9px; font-size:14px; }
+  .stack { display:flex; }
+  .stack .av { margin-right:-8px; }
+  .who .label { color:var(--muted); font-size:var(--xs); margin-left:8px; }
+
+  .add-row {
+    display:flex; align-items:center; gap:8px; color:var(--accent); font-weight:700; font-size:var(--sm);
+    border:2px dashed var(--line); border-radius:12px; padding:11px 14px; margin-top:18px; cursor:pointer; background:none;
+    width:100%; justify-content:center;
+  }
+  .add-row:hover { background:var(--accent-soft); }
+
+  /* ── 시안2: 시대/챕터 그룹 ─────────────────────────── */
+  .band { margin-top:20px; }
+  .band-h { display:flex; align-items:center; gap:8px; }
+  .band-h .chev { color:var(--muted); }
+  .band-h h3 { font-size:var(--base); font-weight:800; }
+  .band-h .meta { color:var(--muted); font-size:var(--xs); margin-left:auto; }
+  .band .rail { margin-top:10px; margin-left:4px; }
+
+  /* ── 시안3: 자캐 페이지 섹션 ───────────────────────── */
+  .charlayout { display:grid; grid-template-columns:120px 1fr; gap:18px; margin-top:16px; }
+  .charlayout .photo { width:120px; height:150px; border-radius:12px; display:grid; place-items:center;
+    color:#fff; font-weight:800; font-size:34px; }
+  .charlayout .cname { font-size:22px; font-weight:800; letter-spacing:-.02em; }
+  .charlayout .cmeta { color:var(--muted); font-size:var(--sm); margin-top:2px; }
+  .section-cap { font-size:var(--xs); font-weight:700; letter-spacing:.03em; color:var(--muted);
+    margin:22px 0 8px; text-transform:none; }
+  .mini .ev { padding-bottom:16px; }
+  .mini .ev .etitle { font-size:var(--sm); }
+
+  /* ── 시안4: 가로 타임라인 ──────────────────────────── */
+  .hwrap { margin-top:18px; overflow-x:auto; padding-bottom:10px; }
+  .hrail { position:relative; display:flex; gap:0; min-width:720px; padding-top:34px; }
+  .hrail::before { content:""; position:absolute; left:0; right:0; top:44px; height:2px; background:var(--line); }
+  .hcol { position:relative; flex:1; min-width:150px; padding:0 10px; }
+  .hcol .tick { position:absolute; top:38px; left:16px; width:12px; height:12px; border-radius:50%;
+    background:var(--ground); border:2px solid var(--accent); }
+  .hcol .htime { position:absolute; top:8px; left:0; font-size:var(--xs); font-weight:700; color:var(--accent); }
+  .hcard { margin-top:44px; background:var(--hover); border-radius:12px; padding:11px 12px; }
+  .hcard .etitle { font-size:var(--sm); font-weight:700; }
+  .hcard .edesc { color:var(--muted); font-size:var(--xs); margin-top:3px; }
+  .hcard .who { margin-top:8px; }
+
+  .legend { margin-top:14px; color:var(--muted); font-size:var(--xs); }
+  @media (max-width:520px){ .charlayout{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="lead">
+    <h1>타임라인 기능 시안</h1>
+    <p>자캐 정리 서비스에 <b>사건·역사(연표)</b> 개념을 도입하는 4가지 방향입니다. 실제 T1 여백 테마 토큰으로 렌더했고, 샘플 세계관 <b>“어쩌구 우주”</b>의 데이터를 사용했습니다. 상단 탭으로 시안을 전환하세요.</p>
+  </div>
+
+  <div class="switch" role="tablist">
+    <button role="tab" aria-selected="true" data-target="c1">시안 1 · 세계관 연표</button>
+    <button role="tab" aria-selected="false" data-target="c2">시안 2 · 시대·챕터 그룹</button>
+    <button role="tab" aria-selected="false" data-target="c3">시안 3 · 자캐 개인 연표</button>
+    <button role="tab" aria-selected="false" data-target="c4">시안 4 · 가로 개요</button>
+  </div>
+
+  <!-- ══════════ 시안 1 ══════════ -->
+  <section class="concept" id="c1" data-active>
+    <div class="note">
+      <b>세계관 연표 — 세로 단일 레일.</b> 세계관 뷰에 <b>자캐 / 연표</b> 탭을 추가하고, 사건을 하나의 세로 레일에 시간순으로 쌓습니다. 각 사건은 시점 라벨(자유 문자열, 기존 <code>era</code>와 동일 방식)·제목·설명·참여 자캐로 구성됩니다. 가장 단순하고 기존 패턴에 자연스럽게 붙습니다.
+      <div class="tags"><span>신규 Event 엔티티</span><span>시점 = 자유 라벨</span><span>참여 자캐 참조</span><span>세계관 하위 탭 (?w=…&view=timeline)</span></div>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="inner">
+        <div class="topbar">
+          <span class="back">‹ 내 세계관</span>
+          <span class="spacer">저장됨</span>
+          <span>⚙</span>
+        </div>
+        <div class="wv-title">어쩌구 우주</div>
+        <div class="wv-era">연대 2020</div>
+        <div class="viewchips">
+          <button>자캐</button>
+          <button aria-selected="true">연표</button>
+        </div>
+
+        <div class="rail">
+          <div class="ev">
+            <div class="when">우주력 이전</div>
+            <div class="etitle">나팔호 건조</div>
+            <div class="edesc">탐사선 나팔호가 완성되어 첫 크루가 선발된다.</div>
+          </div>
+          <div class="ev">
+            <div class="when">1년차 봄</div>
+            <div class="etitle">가가, 막내 승무원으로 승선</div>
+            <div class="edesc">호호할머니 손에서 자란 가가가 나팔호에 합류한다.</div>
+            <div class="who">
+              <span class="stack">
+                <span class="av" style="background:#6b8cc4">가</span>
+                <span class="av" style="background:#b08a4a">호</span>
+              </span>
+              <span class="label">가가 · 호호할머니</span>
+            </div>
+          </div>
+          <div class="ev">
+            <div class="when">1년차 여름</div>
+            <div class="etitle">고영희, 함내 고양이가 되다</div>
+            <div class="edesc">떠돌던 고양이 고영희를 가가가 데려와 집사를 자처한다.</div>
+            <div class="who">
+              <span class="stack">
+                <span class="av" style="background:#6b8cc4">가</span>
+                <span class="av" style="background:#7a7f88">고</span>
+              </span>
+              <span class="label">가가 · 고영희</span>
+            </div>
+          </div>
+          <div class="ev soft">
+            <div class="when">2년차</div>
+            <div class="etitle">비둘기 구구 합류</div>
+            <div class="edesc">통신 담당으로 구구가 크루에 들어온다.</div>
+            <div class="who">
+              <span class="stack"><span class="av" style="background:#8a9bb0">구</span></span>
+              <span class="label">구구</span>
+            </div>
+          </div>
+        </div>
+        <button class="add-row">＋ 사건 추가</button>
+      </div></div>
+      <div class="caption">
+        <h3>동작 방식</h3>
+        <ul>
+          <li>세계관 뷰 상단 칩으로 <b>자캐 ↔ 연표</b> 전환 (뷰 상태는 URL).</li>
+          <li>사건은 시점 라벨로 자유 표기 — 실제 날짜를 강요하지 않아 판타지/현대물 모두 대응.</li>
+          <li>참여 자캐는 관계 편집기처럼 자캐를 참조(아바타 스택). 자캐 삭제 시 자동 정리.</li>
+          <li>정렬은 수동 순서 유지(드래그) 또는 시점 라벨 기준.</li>
+          <li>카운트 미표시 원칙 유지.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 시안 2 ══════════ -->
+  <section class="concept" id="c2">
+    <div class="note">
+      <b>시대·챕터 그룹 — 접이식 구간.</b> 사건을 <b>시대/막/에피소드</b>로 묶어 접었다 펼칩니다. 스토리 아크가 뚜렷한 세계관에 적합하며, 사건이 많아져도 개요를 유지합니다.
+      <div class="tags"><span>Event + Chapter(구간) 엔티티</span><span>구간별 접기</span><span>스토리 중심</span></div>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="inner">
+        <div class="topbar">
+          <span class="back">‹ 내 세계관</span>
+          <span class="spacer">저장됨</span>
+          <span>⚙</span>
+        </div>
+        <div class="wv-title">어쩌구 우주</div>
+        <div class="viewchips">
+          <button>자캐</button>
+          <button aria-selected="true">연표</button>
+        </div>
+
+        <div class="band">
+          <div class="band-h"><span class="chev">▾</span><h3>1막 · 출항 전</h3><span class="meta">우주력 이전</span></div>
+          <div class="rail">
+            <div class="ev soft">
+              <div class="etitle">나팔호 건조</div>
+              <div class="edesc">탐사선이 완성되고 첫 크루가 선발된다.</div>
+            </div>
+            <div class="ev soft">
+              <div class="etitle">호호할머니, 가가를 거두다</div>
+              <div class="who">
+                <span class="stack"><span class="av" style="background:#b08a4a">호</span><span class="av" style="background:#6b8cc4">가</span></span>
+                <span class="label">호호할머니 · 가가</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="band">
+          <div class="band-h"><span class="chev">▾</span><h3>2막 · 나팔호의 나날</h3><span class="meta">1–2년차</span></div>
+          <div class="rail">
+            <div class="ev">
+              <div class="etitle">가가 승선, 고영희 합류</div>
+              <div class="edesc">막내 승무원과 함내 고양이가 함께한다.</div>
+              <div class="who">
+                <span class="stack"><span class="av" style="background:#6b8cc4">가</span><span class="av" style="background:#7a7f88">고</span></span>
+                <span class="label">가가 · 고영희</span>
+              </div>
+            </div>
+            <div class="ev">
+              <div class="etitle">통신병 구구 합류</div>
+              <div class="who"><span class="stack"><span class="av" style="background:#8a9bb0">구</span></span><span class="label">구구</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="band">
+          <div class="band-h"><span class="chev">▸</span><h3>3막 · 미지의 신호</h3><span class="meta">3년차 —</span></div>
+        </div>
+        <button class="add-row">＋ 구간 · 사건 추가</button>
+      </div></div>
+      <div class="caption">
+        <h3>동작 방식</h3>
+        <ul>
+          <li>사건 위에 <b>구간(막/장)</b> 계층을 하나 둔다. 구간 헤더를 눌러 접기.</li>
+          <li>구간 자체에 시대 라벨을 달아 큰 흐름을 요약.</li>
+          <li>사건이 수십 개로 늘어도 스크롤 부담이 적음.</li>
+          <li>시안 1보다 모델·UI가 한 겹 복잡(구간 CRUD·정렬 필요).</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 시안 3 ══════════ -->
+  <section class="concept" id="c3">
+    <div class="note">
+      <b>자캐 개인 연표 — 캐릭터 페이지 섹션.</b> 세계관 전체가 아니라 <b>한 자캐의 생애</b>를 캐릭터 상세에 스토리·관계와 나란히 놓습니다. 인물 중심 정리 습관과 가장 잘 맞고, 새 탐색 경로가 필요 없습니다.
+      <div class="tags"><span>Character에 milestones 추가</span><span>세계관 탭 불필요</span><span>인물 중심</span></div>
+    </div>
+    <div class="stage">
+      <div class="phone"><div class="inner">
+        <div class="topbar">
+          <span class="back">‹ 어쩌구 우주</span>
+          <span class="spacer">저장됨</span>
+          <span>★</span><span>⋮</span>
+        </div>
+        <div class="charlayout">
+          <div class="photo" style="background:#6b8cc4">가</div>
+          <div>
+            <div class="cname">가가</div>
+            <div class="cmeta">15 · 인간</div>
+          </div>
+        </div>
+
+        <div class="section-cap">성격</div>
+        <div class="who" style="flex-wrap:wrap;gap:6px">
+          <span style="background:var(--hover);border-radius:999px;padding:4px 12px;font-size:13px">조용함</span>
+          <span style="background:var(--hover);border-radius:999px;padding:4px 12px;font-size:13px">어른스러움</span>
+          <span style="background:var(--hover);border-radius:999px;padding:4px 12px;font-size:13px">친절함</span>
+        </div>
+
+        <div class="section-cap">연표</div>
+        <div class="rail mini">
+          <div class="ev soft">
+            <div class="when">유년기</div>
+            <div class="etitle">호호할머니 손에서 자라다</div>
+          </div>
+          <div class="ev">
+            <div class="when">1년차 봄</div>
+            <div class="etitle">나팔호 막내 승무원으로 승선</div>
+          </div>
+          <div class="ev">
+            <div class="when">1년차 여름</div>
+            <div class="etitle">고영희의 집사가 되다</div>
+          </div>
+        </div>
+        <button class="add-row">＋ 사건 추가</button>
+
+        <div class="section-cap">스토리</div>
+        <p style="color:var(--muted);font-size:15px">우주선 나팔호의 막내 승무원. 어릴 때 호호할머니 손에서 자랐고…</p>
+      </div></div>
+      <div class="caption">
+        <h3>동작 방식</h3>
+        <ul>
+          <li>캐릭터 상세에 <b>연표</b> 섹션 추가(스토리·관계와 동급).</li>
+          <li>모델 변경 최소 — Character에 개인 사건 배열만 추가.</li>
+          <li>단점: 세계관 전체의 흐름을 한눈에 보긴 어려움(인물별로 흩어짐).</li>
+          <li>시안 1과 <b>병행 가능</b> — 세계관 사건에 참여하면 그 인물 연표에도 자동 노출.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 시안 4 ══════════ -->
+  <section class="concept" id="c4">
+    <div class="note">
+      <b>가로 개요 — 미니맵형.</b> 사건을 가로 축에 늘어놓아 전체 흐름을 <b>한 화면에 조망</b>합니다. 데스크탑에서 강력하고, 모바일에서는 가로 스크롤. 시안 1/2의 <b>보조 뷰</b>로도 좋습니다.
+      <div class="tags"><span>동일 Event 데이터</span><span>가로 스크롤</span><span>개요·조망용</span></div>
+    </div>
+    <div class="stage" style="display:block">
+      <div class="phone" style="width:100%;max-width:860px"><div class="inner">
+        <div class="topbar">
+          <span class="back">‹ 내 세계관</span>
+          <span class="spacer">저장됨</span>
+          <span>⚙</span>
+        </div>
+        <div class="wv-title">어쩌구 우주</div>
+        <div class="viewchips">
+          <button>자캐</button>
+          <button aria-selected="true">연표</button>
+        </div>
+
+        <div class="hwrap">
+          <div class="hrail">
+            <div class="hcol">
+              <div class="htime">우주력 이전</div><div class="tick" style="border-color:var(--line)"></div>
+              <div class="hcard">
+                <div class="etitle">나팔호 건조</div>
+                <div class="edesc">첫 크루 선발</div>
+              </div>
+            </div>
+            <div class="hcol">
+              <div class="htime">1년차 봄</div><div class="tick"></div>
+              <div class="hcard">
+                <div class="etitle">가가 승선</div>
+                <div class="edesc">막내 승무원 합류</div>
+                <div class="who"><span class="stack"><span class="av" style="background:#6b8cc4">가</span><span class="av" style="background:#b08a4a">호</span></span></div>
+              </div>
+            </div>
+            <div class="hcol">
+              <div class="htime">1년차 여름</div><div class="tick"></div>
+              <div class="hcard">
+                <div class="etitle">고영희 합류</div>
+                <div class="edesc">함내 고양이</div>
+                <div class="who"><span class="stack"><span class="av" style="background:#6b8cc4">가</span><span class="av" style="background:#7a7f88">고</span></span></div>
+              </div>
+            </div>
+            <div class="hcol">
+              <div class="htime">2년차</div><div class="tick" style="border-color:var(--line)"></div>
+              <div class="hcard">
+                <div class="etitle">구구 합류</div>
+                <div class="edesc">통신 담당</div>
+                <div class="who"><span class="stack"><span class="av" style="background:#8a9bb0">구</span></span></div>
+              </div>
+            </div>
+            <div class="hcol">
+              <div class="htime">3년차</div><div class="tick" style="border-color:var(--line)"></div>
+              <div class="hcard" style="background:var(--accent-soft);border:2px dashed #c9d8ef;color:var(--accent);font-weight:700;text-align:center">＋ 사건</div>
+            </div>
+          </div>
+        </div>
+        <div class="legend">← 가로로 스크롤 · 카드를 누르면 사건 상세 편집</div>
+      </div></div>
+      <div class="caption" style="width:auto;margin-top:16px">
+        <h3>동작 방식</h3>
+        <ul>
+          <li>시안 1/2와 <b>같은 데이터</b>를 가로 축으로 표현하는 대체 레이아웃.</li>
+          <li>데스크탑 조망에 유리, 좁은 화면은 가로 스크롤로 대응.</li>
+          <li>단독 기능이라기보다 세로 연표의 <b>보기 전환 옵션</b>으로 두는 편이 자연스러움.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.switch button');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.setAttribute('aria-selected', x === t));
+    document.querySelectorAll('.concept').forEach(c => c.removeAttribute('data-active'));
+    document.getElementById(t.dataset.target).setAttribute('data-active','');
+    window.scrollTo({top:0, behavior:'instant'});
+  }));
+</script>
+</body>
+</html>

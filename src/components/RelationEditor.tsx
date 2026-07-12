@@ -12,9 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { characterDisplayName, type Character, type Worldview } from "../core/model";
+import { useLocale, useTranslations } from "next-intl";
 import { characterHref } from "../react/links";
 import { guardedKeyDownHandler } from "../react/inputGuards";
-import { useLocale } from "../react/localeContext";
 import { dispatchCommand } from "../store/worldviewStore";
 import { Avatar } from "./Avatar";
 
@@ -27,7 +27,8 @@ export function RelationEditor({
   character: Character;
   characters: Character[];
 }) {
-  const { locale, dictionary } = useLocale();
+  const locale = useLocale();
+  const t = useTranslations();
   const [targetCharacterId, setTargetCharacterId] = useState("");
   const [connector, setConnector] = useState(worldview.connectors[0] ?? "");
   const [label, setLabel] = useState("");
@@ -100,7 +101,7 @@ export function RelationEditor({
           >
             <SelectTrigger className="bg-hover py-1.5">
               <SelectValue
-                placeholder={dictionary.character.relationTargetPlaceholder}
+                placeholder={t("character.relationTargetPlaceholder")}
               />
             </SelectTrigger>
             <SelectContent>
@@ -127,13 +128,13 @@ export function RelationEditor({
           )}
           <Input
             className="min-w-28 flex-1 bg-hover"
-            placeholder={dictionary.character.relationLabelPlaceholder}
+            placeholder={t("character.relationLabelPlaceholder")}
             value={label}
             onChange={(event) => setLabel(event.target.value)}
             onKeyDown={guardedKeyDownHandler({ Enter: addRelation })}
           />
           <Button size="sm" onClick={addRelation}>
-            {dictionary.character.addRelation}
+            {t("character.addRelation")}
           </Button>
         </div>
       )}

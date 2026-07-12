@@ -1,4 +1,10 @@
-import { characterDisplayName, type Character } from "./model";
+import {
+  characterDisplayName,
+  type Character,
+  type Chapter,
+  type TimelineEvent,
+  type Worldview,
+} from "./model";
 
 export type ViewName = "all" | "favorites" | "trash";
 
@@ -73,4 +79,42 @@ export function worldviewPreviewCharacters(
   return [...selectActiveCharacters(characters)]
     .sort((first, second) => second.modifiedAt - first.modifiedAt)
     .slice(0, limit);
+}
+
+export interface ChapterGroup {
+  chapter: Chapter | null;
+  events: TimelineEvent[];
+}
+
+// 세계관 연표 = 개인 사건을 제외한 사건을 구간 순서대로 묶은 그룹. 미분류는 마지막 그룹.
+// 사건의 순서는 worldview.events 배열 순서를 그대로 따른다.
+export function selectWorldTimeline(worldview: Worldview): ChapterGroup[] {
+  const worldEvents = worldview.events.filter(
+    (event) => event.ownerCharacterId === null,
+  );
+  const chapterIds = new Set(worldview.chapters.map((chapter) => chapter.id));
+  const groups: ChapterGroup[] = worldview.chapters.map((chapter) => ({
+    chapter,
+    events: worldEvents.filter((event) => event.chapterId === chapter.id),
+  }));
+  const unassigned = worldEvents.filter(
+    (event) => event.chapterId === null || !chapterIds.has(event.chapterId),
+  );
+  if (unassigned.length > 0) groups.push({ chapter: null, events: unassigned });
+  return groups;
+}
+
+// 자캐 개인 연표 = 그 자캐가 소유한 개인 사건 + 참여한 세계관 사건. 배열 순서 유지.
+export function selectCharacterTimeline(
+  worldview: Worldview,
+  characterId: string,
+): TimelineEvent[] {
+  return worldview.events.filter(
+    (event) =>
+      event.ownerCharacterId === characterId ||
+      (event.ownerCharacterId === null &&
+        event.participants.some(
+          (participant) => participant.characterId === characterId,
+        )),
+  );
 }

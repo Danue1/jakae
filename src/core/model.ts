@@ -15,6 +15,34 @@ export interface Relation {
   label: string;
 }
 
+// 연표 구간(막·에피소드) — 세계관 사건을 묶는 상위 계층. 시대는 자유 라벨(구조화 날짜 아님).
+export interface Chapter {
+  id: string;
+  name: string;
+  nameTranslations: Record<string, string>;
+  era: string;
+  description: string;
+}
+
+export interface EventParticipant {
+  characterId: string;
+  role: string;
+}
+
+// 사건 — chapterId로 세계관 연표에 묶이고, ownerCharacterId가 있으면 그 자캐 전용 개인 사건이다.
+// 개인 사건은 세계관 연표에 나타나지 않고 소유 자캐의 연표에만 보인다.
+export interface TimelineEvent {
+  id: string;
+  chapterId: string | null;
+  ownerCharacterId: string | null;
+  title: string;
+  titleTranslations: Record<string, string>;
+  when: string;
+  place: string;
+  description: string;
+  participants: EventParticipant[];
+}
+
 export interface Worldview {
   id: string;
   name: string;
@@ -24,6 +52,8 @@ export interface Worldview {
   fieldDefinitions: FieldDefinition[];
   connectors: string[];
   groups: Group[];
+  chapters: Chapter[];
+  events: TimelineEvent[];
   createdAt: number;
   modifiedAt: number;
 }
@@ -76,8 +106,37 @@ export function createWorldview(
     })),
     connectors: [...seedDefaults.connectors],
     groups: [],
+    chapters: [],
+    events: [],
     createdAt: timestamp,
     modifiedAt: timestamp,
+  };
+}
+
+export function createChapter(name = ""): Chapter {
+  return {
+    id: crypto.randomUUID(),
+    name,
+    nameTranslations: {},
+    era: "",
+    description: "",
+  };
+}
+
+export function createTimelineEvent(options: {
+  chapterId?: string | null;
+  ownerCharacterId?: string | null;
+}): TimelineEvent {
+  return {
+    id: crypto.randomUUID(),
+    chapterId: options.chapterId ?? null,
+    ownerCharacterId: options.ownerCharacterId ?? null,
+    title: "",
+    titleTranslations: {},
+    when: "",
+    place: "",
+    description: "",
+    participants: [],
   };
 }
 
@@ -119,6 +178,14 @@ export function worldviewDisplayName(
   locale: string,
 ): string {
   return worldview.nameTranslations[locale] || worldview.name;
+}
+
+export function chapterDisplayName(chapter: Chapter, locale: string): string {
+  return chapter.nameTranslations[locale] || chapter.name;
+}
+
+export function eventDisplayTitle(event: TimelineEvent, locale: string): string {
+  return event.titleTranslations[locale] || event.title;
 }
 
 export function fieldDisplayValue(
