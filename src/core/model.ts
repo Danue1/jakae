@@ -9,6 +9,7 @@ export type EntityKind =
   | "group"
   | "place"
   | "race"
+  | "item"
   | "glossary"
   | "chapter"
   | "event";
@@ -18,6 +19,7 @@ export const ENTITY_KINDS: EntityKind[] = [
   "group",
   "place",
   "race",
+  "item",
   "glossary",
   "chapter",
   "event",
@@ -154,13 +156,41 @@ export interface Race {
   description: string;
 }
 
+// 아이템 간 관계 — 대상 아이템과 자유 라벨(세트·재료·한 쌍 등). 종족 관계와 같은 형태.
+export interface ItemRelation {
+  targetItemId: string;
+  label: string;
+}
+
+// 아이템의 구조화 속성 키 — 모두 자유 서술 문자열. 값 설정은 set-item-attribute 하나로 처리한다.
+export type ItemAttributeKey = "kind" | "rarity" | "origin";
+
+// 아이템 — 무기·방어구·유물 등. 캐릭터처럼 이미지·팔레트·배경(appearance)을 갖고, parentId로
+// 세트/부품 계층을 이룬다. 종류·희귀도·출처 속성과 효과·아이템 간 관계를 함께 갖는다.
+// 소유·등장·보관은 필드가 아니라 worldview.references(대상 종류=item)로 표현한다.
+export interface Item {
+  id: string;
+  name: string;
+  nameTranslations: Record<string, string>;
+  images: CharacterImage[];
+  coverImageId: string | null;
+  appearance: CharacterAppearance;
+  parentId: string | null;
+  kind: string;
+  rarity: string;
+  origin: string;
+  effects: string[];
+  relations: ItemRelation[];
+  description: string;
+}
+
 export interface EventParticipant {
   characterId: string;
   role: string;
 }
 
-// 사건 — chapterId로 세계관 연표에 묶이고, ownerCharacterId가 있으면 그 자캐 전용 개인 사건이다.
-// 개인 사건은 세계관 연표에 나타나지 않고 소유 자캐의 연표에만 보인다.
+// 사건 — chapterId로 세계관 연표에 묶이고, ownerCharacterId가 있으면 그 캐릭터 전용 개인 사건이다.
+// 개인 사건은 세계관 연표에 나타나지 않고 소유 캐릭터의 연표에만 보인다.
 export interface TimelineEvent {
   id: string;
   chapterId: string | null;
@@ -188,6 +218,7 @@ export interface Worldview {
   groups: Group[];
   places: Place[];
   races: Race[];
+  items: Item[];
   glossary: GlossaryTerm[];
   chapters: Chapter[];
   events: TimelineEvent[];
@@ -276,6 +307,7 @@ export function createWorldview(
     groups: [],
     places: [],
     races: [],
+    items: [],
     glossary: [],
     chapters: [],
     events: [],
@@ -349,6 +381,24 @@ export function createRace(name = ""): Race {
   };
 }
 
+export function createItem(name = ""): Item {
+  return {
+    id: crypto.randomUUID(),
+    name,
+    nameTranslations: {},
+    images: [],
+    coverImageId: null,
+    appearance: { backgroundColor: null, palette: [] },
+    parentId: null,
+    kind: "",
+    rarity: "",
+    origin: "",
+    effects: [],
+    relations: [],
+    description: "",
+  };
+}
+
 export function createChapter(name = ""): Chapter {
   return {
     id: crypto.randomUUID(),
@@ -414,6 +464,16 @@ export function characterCoverImage(
   );
 }
 
+// 아이템 대표 이미지 — 캐릭터와 같은 규칙(coverImageId → 없으면 첫 이미지 → 없으면 null).
+export function itemCoverImage(item: Item): CharacterImage | null {
+  if (item.images.length === 0) return null;
+  return (
+    item.images.find((image) => image.id === item.coverImageId) ??
+    item.images[0] ??
+    null
+  );
+}
+
 // 다국어 표시 규칙: 보는 언어의 값 → 없으면 원본 값. 빈 문자열은 "지정 안 함"으로 취급한다.
 export function characterDisplayName(
   character: Character,
@@ -459,6 +519,10 @@ export function raceDisplayName(race: Race, locale: string): string {
   return race.nameTranslations[locale] || race.name;
 }
 
+export function itemDisplayName(item: Item, locale: string): string {
+  return item.nameTranslations[locale] || item.name;
+}
+
 export function eventDisplayTitle(event: TimelineEvent, locale: string): string {
   return event.titleTranslations[locale] || event.title;
 }
@@ -498,6 +562,10 @@ export function entityDisplayName(
     case "race": {
       const race = worldview.races.find((existing) => existing.id === id);
       return race ? raceDisplayName(race, locale) : null;
+    }
+    case "item": {
+      const item = worldview.items.find((existing) => existing.id === id);
+      return item ? itemDisplayName(item, locale) : null;
     }
     case "glossary": {
       const term = worldview.glossary.find((existing) => existing.id === id);
@@ -544,6 +612,11 @@ export function listEntities(
         return worldview.races.map((race) => ({
           id: race.id,
           name: raceDisplayName(race, locale),
+        }));
+      case "item":
+        return worldview.items.map((item) => ({
+          id: item.id,
+          name: itemDisplayName(item, locale),
         }));
       case "glossary":
         return worldview.glossary.map((term) => ({

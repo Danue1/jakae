@@ -4,11 +4,13 @@ import {
   eventDisplayTitle,
   glossaryTermDisplayName,
   groupDisplayName,
+  itemDisplayName,
   placeDisplayName,
   raceDisplayName,
   type Character,
   type Chapter,
   type EntityKind,
+  type Item,
   type Place,
   type Race,
   type Reference,
@@ -107,6 +109,7 @@ export type SearchResultKind =
   | "group"
   | "place"
   | "race"
+  | "item"
   | "glossary"
   | "chapter"
   | "event";
@@ -118,7 +121,7 @@ export interface SearchResult {
 }
 
 // 전역 검색 — 모든 로어 엔티티를 언어 무관하게(원본+모든 번역) 이름으로 매치. 종류 순서로 묶어 반환한다.
-// 표시 이름은 보는 언어 기준(fallback 원본). 휴지통 자캐는 제외.
+// 표시 이름은 보는 언어 기준(fallback 원본). 휴지통 캐릭터는 제외.
 export function selectGlobalSearchResults(
   worldview: Worldview,
   characters: Character[],
@@ -167,6 +170,13 @@ export function selectGlobalSearchResults(
         kind: "race",
         id: race.id,
         name: raceDisplayName(race, locale),
+      });
+  for (const item of worldview.items)
+    if (matches(item.name, item.nameTranslations))
+      results.push({
+        kind: "item",
+        id: item.id,
+        name: itemDisplayName(item, locale),
       });
   for (const term of worldview.glossary)
     if (matches(term.name, term.nameTranslations))
@@ -279,6 +289,18 @@ export function selectRootRaces(worldview: Worldview): Race[] {
   );
 }
 
+export function selectChildItems(worldview: Worldview, parentId: string): Item[] {
+  return worldview.items.filter((item) => item.parentId === parentId);
+}
+
+// 상위 아이템이 없는(최상위 세트) 아이템들 — 트리 루트. 부모 참조가 끊긴 경우도 루트로 취급.
+export function selectRootItems(worldview: Worldview): Item[] {
+  const itemIds = new Set(worldview.items.map((item) => item.id));
+  return worldview.items.filter(
+    (item) => item.parentId === null || !itemIds.has(item.parentId),
+  );
+}
+
 // 상위 장소가 없는(최상위) 장소들 — 트리 루트. 부모 참조가 끊긴 경우도 루트로 취급.
 export function selectRootPlaces(worldview: Worldview): Place[] {
   const placeIds = new Set(worldview.places.map((place) => place.id));
@@ -310,7 +332,7 @@ export interface ChapterGroup {
 }
 
 // 전체 연표 = 개인 사건을 포함한 모든 사건을 구간 순서대로 묶은 그룹. 미분류는 마지막 그룹.
-// 개인 사건도 여기 보이며(소유 자캐는 배지로 구분), 사건 순서는 worldview.events 배열 순서를 따른다.
+// 개인 사건도 여기 보이며(소유 캐릭터는 배지로 구분), 사건 순서는 worldview.events 배열 순서를 따른다.
 export function selectWorldTimeline(worldview: Worldview): ChapterGroup[] {
   const chapterIds = new Set(worldview.chapters.map((chapter) => chapter.id));
   const groups: ChapterGroup[] = worldview.chapters.map((chapter) => ({
@@ -324,7 +346,7 @@ export function selectWorldTimeline(worldview: Worldview): ChapterGroup[] {
   return groups;
 }
 
-// 자캐 개인 연표 = 그 자캐가 소유한 개인 사건 + 참여한 세계관 사건. 배열 순서 유지.
+// 캐릭터 개인 연표 = 그 캐릭터가 소유한 개인 사건 + 참여한 세계관 사건. 배열 순서 유지.
 export function selectCharacterTimeline(
   worldview: Worldview,
   characterId: string,
@@ -339,7 +361,7 @@ export function selectCharacterTimeline(
   );
 }
 
-// 사건을 형제 목록(같은 구간·같은 자캐 연표 등) 안에서 위/아래로 옮길 때 move-event에 넘길
+// 사건을 형제 목록(같은 구간·같은 캐릭터 연표 등) 안에서 위/아래로 옮길 때 move-event에 넘길
 // 전역 배열 targetIndex. 이동할 곳이 없으면 null. move-event의 "원소 제거 후 삽입" 의미와 맞춘다.
 export function eventMoveTargetIndex(
   events: TimelineEvent[],

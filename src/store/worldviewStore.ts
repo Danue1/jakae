@@ -77,6 +77,18 @@ export async function attachCharacterImage(
   });
 }
 
+export async function attachItemImage(
+  itemId: string,
+  file: Blob,
+): Promise<void> {
+  const blobId = await browserImageAdapter.saveImageFile(file);
+  dispatchCommand({
+    type: "add-item-image",
+    itemId,
+    image: { id: crypto.randomUUID(), blobId, caption: "" },
+  });
+}
+
 export async function duplicateCharacter(
   characterId: string,
   copySuffix: string,

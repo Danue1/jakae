@@ -90,7 +90,7 @@ export function CharacterCard({
   const body =
     view === "gallery" ? (
       <EntityCardBody
-        thumb={<Avatar character={character} fill className="rounded-none" />}
+        thumb={<Avatar subject={character} fill className="rounded-none" />}
         name={name}
         favorite={favorite}
         subtitle={subtitle}
@@ -98,7 +98,7 @@ export function CharacterCard({
       />
     ) : (
       <EntityRowBody
-        thumb={<Avatar character={character} className="size-7 shrink-0" />}
+        thumb={<Avatar subject={character} className="size-7 shrink-0" />}
         name={name}
         favorite={favorite}
         subtitle={subtitle}

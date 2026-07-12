@@ -173,7 +173,7 @@ export function KindBadge({ children }: { children: ReactNode }) {
   );
 }
 
-// 겹친 아바타 스택 — 조직 구성원·사건 참여 자캐를 카드/행 메타에 표시한다.
+// 겹친 아바타 스택 — 조직 구성원·사건 참여 캐릭터를 카드/행 메타에 표시한다.
 export function AvatarStack({
   characters,
   limit = 5,
@@ -187,7 +187,7 @@ export function AvatarStack({
       {characters.slice(0, limit).map((character) => (
         <Avatar
           key={character.id}
-          character={character}
+          subject={character}
           className="-ml-1.5 w-6 rounded-md border-2 border-ground"
         />
       ))}

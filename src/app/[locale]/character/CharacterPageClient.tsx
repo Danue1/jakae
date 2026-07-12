@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { BackgroundPicker } from "@/components/BackgroundPicker";
 import { DetailItem } from "@/components/DetailItem";
-import { CharacterImages } from "@/components/CharacterImages";
+import { EntityImages } from "@/components/EntityImages";
 import { CharacterTimeline } from "@/components/CharacterTimeline";
 import { LocaleTabs } from "@/components/LocaleTabs";
 import { MissingWorldview } from "@/components/MissingWorldview";
@@ -498,9 +498,9 @@ export function CharacterPageClient() {
 
       <div className="mt-4 lg:grid lg:grid-cols-detail lg:gap-10">
         <div className="mx-auto w-full max-w-sm lg:mx-0 lg:max-w-none">
-          <CharacterImages character={character} />
+          <EntityImages target={{ kind: "character", character }} />
           <div className="mt-3">
-            <BackgroundPicker character={character} />
+            <BackgroundPicker target={{ kind: "character", character }} />
           </div>
 
           <div className="mt-4 flex items-center gap-2">

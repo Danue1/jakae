@@ -37,6 +37,18 @@ export const DETAIL_LAYOUTS: Record<string, string[]> = {
   ],
   chapter: ["era", "description", "events", "references"],
   glossary: ["description", "references"],
+  // 아이템만 캐릭터처럼 데스크탑 2컬럼이라 main(이미지 곁 팔레트)·aside(속성·관계) 두 그룹으로 나눈다.
+  "item-main": ["palette"],
+  "item-aside": [
+    "kind",
+    "rarity",
+    "origin",
+    "parent",
+    "effects",
+    "description",
+    "references",
+    "relations",
+  ],
 };
 
 // 저장된 순서를 유효 키만 남기고, 기본 키 중 빠진 것을 기본 순서대로 뒤에 덧붙인다.

@@ -4,6 +4,7 @@ import {
   createChapter,
   createGlossaryTerm,
   createGroup,
+  createItem,
   createPlace,
   createRace,
   createReference,
@@ -20,6 +21,13 @@ const HOMETOWN_LABEL: Record<Locale, string> = {
   ko: "고향",
   en: "Hometown",
   ja: "出身",
+};
+
+// character→item 참조 라벨 — 소유(등장·제작 등과 구분되도록 명시). 시드 언어 고정.
+const ITEM_OWNER_LABEL: Record<Locale, string> = {
+  ko: "소유",
+  en: "Owner",
+  ja: "所有",
 };
 
 let seedPromise: Promise<void> | null = null;
@@ -79,6 +87,30 @@ async function seedSampleWorldview(
       const target = worldview.races[relation.toIndex];
       if (target)
         race.relations.push({ targetRaceId: target.id, label: relation.label });
+    }
+  });
+
+  // 아이템: 먼저 전부 생성한 뒤 세트 계층(parent)·아이템 간 관계를 index로 연결한다.
+  worldview.items = seed.sampleItems.map((itemSeed) => {
+    const item = createItem(itemSeed.name);
+    item.kind = itemSeed.kind;
+    item.rarity = itemSeed.rarity;
+    item.origin = itemSeed.origin;
+    item.effects = [...itemSeed.effects];
+    item.description = itemSeed.description;
+    return item;
+  });
+  seed.sampleItems.forEach((itemSeed, itemIndex) => {
+    const item = worldview.items[itemIndex];
+    if (!item) return;
+    if (itemSeed.parentIndex !== null) {
+      const parent = worldview.items[itemSeed.parentIndex];
+      if (parent) item.parentId = parent.id;
+    }
+    for (const relation of itemSeed.relations) {
+      const target = worldview.items[relation.toIndex];
+      if (target)
+        item.relations.push({ targetItemId: target.id, label: relation.label });
     }
   });
 
@@ -170,9 +202,20 @@ async function seedSampleWorldview(
       createReference("character", from.id, "character", to.id, relationSeed.label),
     );
   }
+  // 아이템 소유: 소유자가 지정된 아이템을 그 캐릭터가 가리키도록 참조를 건다.
+  const itemOwnerLabel = ITEM_OWNER_LABEL[locale as Locale] ?? ITEM_OWNER_LABEL.ko;
+  seed.sampleItems.forEach((itemSeed, itemIndex) => {
+    if (itemSeed.ownerIndex === null) return;
+    const owner = characters[itemSeed.ownerIndex];
+    const item = worldview.items[itemIndex];
+    if (owner && item)
+      references.push(
+        createReference("character", owner.id, "item", item.id, itemOwnerLabel),
+      );
+  });
   worldview.references = references;
 
-  // 사건: 구간·소유 자캐·장소·참여 자캐를 index로 연결한다. 배열 순서가 곧 연표 표시 순서.
+  // 사건: 구간·소유 캐릭터·장소·참여 캐릭터를 index로 연결한다. 배열 순서가 곧 연표 표시 순서.
   worldview.events = seed.sampleEvents.map((eventSeed) => {
     const chapter =
       eventSeed.chapterIndex !== null

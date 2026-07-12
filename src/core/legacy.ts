@@ -11,6 +11,7 @@ import {
   type FieldType,
   type GlossaryTerm,
   type Group,
+  type Item,
   type PaletteColor,
   type Place,
   type Race,
@@ -64,6 +65,7 @@ export interface LegacyWorldviewRecord
     | "groups"
     | "places"
     | "races"
+    | "items"
     | "glossary"
     | "chapters"
     | "events"
@@ -88,6 +90,7 @@ export interface LegacyWorldviewRecord
   })[];
   places?: Place[];
   races?: Race[];
+  items?: Item[];
   glossary?: GlossaryTerm[];
   chapters?: Chapter[];
   events?: (Omit<TimelineEvent, "placeId"> & { placeId?: string | null })[];
@@ -167,6 +170,27 @@ export function normalizeWorldviewRecord(
         label: relation.label,
       })),
       description: race.description ?? "",
+    })),
+    items: (record.items ?? []).map((item) => ({
+      id: item.id,
+      name: item.name,
+      nameTranslations: item.nameTranslations ?? {},
+      images: item.images ?? [],
+      coverImageId: item.coverImageId ?? null,
+      appearance: {
+        backgroundColor: item.appearance?.backgroundColor ?? null,
+        palette: item.appearance?.palette ?? [],
+      },
+      parentId: item.parentId ?? null,
+      kind: item.kind ?? "",
+      rarity: item.rarity ?? "",
+      origin: item.origin ?? "",
+      effects: item.effects ?? [],
+      relations: (item.relations ?? []).map((relation) => ({
+        targetItemId: relation.targetItemId,
+        label: relation.label,
+      })),
+      description: item.description ?? "",
     })),
     glossary: record.glossary ?? [],
     chapters: record.chapters ?? [],

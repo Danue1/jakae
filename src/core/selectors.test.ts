@@ -24,7 +24,7 @@ describe("selectGlobalSearchResults", () => {
     expect(selectGlobalSearchResults(worldview, [], "  ", "ko")).toEqual([]);
   });
 
-  it("자캐·조직·장소·용어를 종류별로 관통 매치한다", () => {
+  it("캐릭터·조직·장소·용어를 종류별로 관통 매치한다", () => {
     const worldview = createWorldview("테스트", SEED_DEFAULTS, "ko", "", 0);
     const group = createGroup("공명 선단");
     const place = createPlace("공명 관측소");
@@ -70,7 +70,7 @@ describe("selectGlobalSearchResults", () => {
     ]);
   });
 
-  it("휴지통 자캐는 제외한다", () => {
+  it("휴지통 캐릭터는 제외한다", () => {
     const worldview = createWorldview("테스트", SEED_DEFAULTS, "ko", "", 0);
     const trashed = createCharacter(worldview.id, "버려짐", 0);
     trashed.deletedAt = 1;

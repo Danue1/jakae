@@ -4,6 +4,7 @@ import {
   Clock,
   Dna,
   MapPin,
+  Swords,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import {
   chapterHref,
   eventHref,
   glossaryHref,
+  itemHref,
   organizationHref,
   placeHref,
   raceHref,
@@ -40,6 +42,7 @@ export const ENTITY_KIND_UI: Record<EntityKind, EntityKindUi> = {
   },
   place: { icon: MapPin, labelKey: "entityKind.place", href: placeHref },
   race: { icon: Dna, labelKey: "entityKind.race", href: raceHref },
+  item: { icon: Swords, labelKey: "entityKind.item", href: itemHref },
   glossary: {
     icon: BookText,
     labelKey: "entityKind.glossary",

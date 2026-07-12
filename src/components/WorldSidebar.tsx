@@ -12,6 +12,7 @@ import {
   Search,
   Settings,
   SlidersHorizontal,
+  Swords,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -24,14 +25,17 @@ import {
   characterDisplayName,
   glossaryTermDisplayName,
   groupDisplayName,
+  itemDisplayName,
   placeDisplayName,
   raceDisplayName,
   worldviewDisplayName,
 } from "@/core/model";
 import {
   selectActiveCharacters,
+  selectChildItems,
   selectChildPlaces,
   selectChildRaces,
+  selectRootItems,
   selectRootPlaces,
   selectRootRaces,
 } from "@/core/selectors";
@@ -41,6 +45,8 @@ import {
   charactersHref,
   glossaryHref,
   glossaryListHref,
+  itemHref,
+  itemListHref,
   libraryHref,
   organizationHref,
   organizationListHref,
@@ -62,6 +68,7 @@ export type WorldSection =
   | "organizations"
   | "places"
   | "races"
+  | "items"
   | "glossary"
   | "timeline"
   | "settings";
@@ -72,6 +79,7 @@ const EXPANDABLE: WorldSection[] = [
   "organizations",
   "places",
   "races",
+  "items",
   "glossary",
   "timeline",
 ];
@@ -103,6 +111,7 @@ export function WorldSidebar({
     searchParams.get("o") ??
     searchParams.get("p") ??
     searchParams.get("r") ??
+    searchParams.get("i") ??
     searchParams.get("g") ??
     searchParams.get("c");
 
@@ -247,6 +256,33 @@ export function WorldSidebar({
     ));
   };
 
+  const renderItemLeaves = (parentId: string | null, depth: number) => {
+    const items =
+      parentId === null
+        ? selectRootItems(worldview)
+        : selectChildItems(worldview, parentId);
+    return items.map((item) => (
+      <div key={item.id}>
+        <Link
+          href={itemHref(locale, worldviewId, item.id)}
+          className={leafClass(activeEntityId === item.id)}
+          style={depth > 0 ? { paddingLeft: `${2.25 + depth}rem` } : undefined}
+          onClick={onNavigate}
+        >
+          <span
+            className={cn(
+              "size-1.5 shrink-0 rounded-[2px]",
+              activeEntityId === item.id ? "bg-accent" : "bg-line",
+            )}
+            aria-hidden="true"
+          />
+          <span className="truncate">{itemDisplayName(item, locale) || "-"}</span>
+        </Link>
+        {renderItemLeaves(item.id, depth + 1)}
+      </div>
+    ));
+  };
+
   const sortedCharacters = [...selectActiveCharacters(characters)].sort(
     (first, second) =>
       characterDisplayName(first, locale).localeCompare(
@@ -330,6 +366,14 @@ export function WorldSidebar({
           listHref={raceListHref(locale, worldviewId)}
         >
           {renderRaceLeaves(null, 0)}
+        </Category>
+        <Category
+          section="items"
+          icon={Swords}
+          label={t("nav.items")}
+          listHref={itemListHref(locale, worldviewId)}
+        >
+          {renderItemLeaves(null, 0)}
         </Category>
         <Category
           section="glossary"

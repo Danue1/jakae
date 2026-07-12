@@ -149,7 +149,7 @@ function EventRow({
               {participants.slice(0, 5).map((character) => (
                 <Avatar
                   key={character.id}
-                  character={character}
+                  subject={character}
                   className="-mr-1.5 w-6 rounded-md border-2 border-ground"
                 />
               ))}
@@ -211,7 +211,7 @@ function EventRow({
   );
 }
 
-// 갤러리 뷰의 사건 카드 — 시점 칩 썸네일 + 제목 + 참여 자캐/개인 배지. 재정렬은 표 뷰에서.
+// 갤러리 뷰의 사건 카드 — 시점 칩 썸네일 + 제목 + 참여 캐릭터/개인 배지. 재정렬은 표 뷰에서.
 function EventCard({
   event,
   worldview,

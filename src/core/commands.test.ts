@@ -3,6 +3,7 @@ import { applyCommand, type WorldviewState } from "./commands";
 import {
   characterDisplayName,
   createCharacter,
+  createItem,
   createReference,
   createWorldview,
   fieldDisplayValue,
@@ -269,7 +270,7 @@ describe("applyCommand", () => {
     ).toEqual({});
   });
 
-  it("영구 삭제는 캐릭터만 지우고 참조는 남겨 둔다(되돌리면 자캐가 살아나 재연결)", () => {
+  it("영구 삭제는 캐릭터만 지우고 참조는 남겨 둔다(되돌리면 캐릭터가 살아나 재연결)", () => {
     const { state, catId } = buildState();
     const applied = applyCommand(
       state,
@@ -505,5 +506,96 @@ describe("applyCommand", () => {
         2000,
       ),
     ).toThrow();
+  });
+
+  it("아이템 삭제는 부품의 parentId와 다른 아이템의 관계를 끊고, 역커맨드로 원래 자리·관계까지 복원한다", () => {
+    const { state } = buildState();
+    const sword = createItem("여명의 검");
+    const gem = createItem("여명석");
+    const shard = createItem("검 파편");
+    shard.parentId = sword.id;
+    gem.relations = [{ targetItemId: sword.id, label: "재료" }];
+    const worldview = {
+      ...state.worldview,
+      items: [sword, gem, shard],
+    };
+    const seeded: WorldviewState = { worldview, characters: state.characters };
+
+    const removed = applyCommand(
+      seeded,
+      { type: "remove-item", itemId: sword.id },
+      2000,
+    );
+    expect(removed.state.worldview.items.map((item) => item.id)).toEqual([
+      gem.id,
+      shard.id,
+    ]);
+    expect(
+      removed.state.worldview.items.find((item) => item.id === shard.id)?.parentId,
+    ).toBeNull();
+    expect(
+      removed.state.worldview.items.find((item) => item.id === gem.id)?.relations,
+    ).toEqual([]);
+
+    const restored = applyCommand(removed.state, removed.inverse, 3000);
+    expect(restored.state.worldview.items.map((item) => item.id)).toEqual([
+      sword.id,
+      gem.id,
+      shard.id,
+    ]);
+    expect(
+      restored.state.worldview.items.find((item) => item.id === shard.id)?.parentId,
+    ).toBe(sword.id);
+    expect(
+      restored.state.worldview.items.find((item) => item.id === gem.id)?.relations,
+    ).toEqual([{ targetItemId: sword.id, label: "재료" }]);
+  });
+
+  it("아이템 부모 지정은 순환을 거부한다", () => {
+    const { state } = buildState();
+    const outer = createItem("세트");
+    const part = createItem("부품");
+    part.parentId = outer.id;
+    const seeded: WorldviewState = {
+      worldview: { ...state.worldview, items: [outer, part] },
+      characters: state.characters,
+    };
+    expect(() =>
+      applyCommand(
+        seeded,
+        { type: "set-item-parent", itemId: outer.id, parentId: part.id },
+        2000,
+      ),
+    ).toThrow();
+  });
+
+  it("아이템 속성·팔레트는 역커맨드로 왕복한다", () => {
+    const { state } = buildState();
+    const item = createItem("반지");
+    const seeded: WorldviewState = {
+      worldview: { ...state.worldview, items: [item] },
+      characters: state.characters,
+    };
+    const rarified = applyCommand(
+      seeded,
+      { type: "set-item-attribute", itemId: item.id, key: "rarity", value: "전설" },
+      2000,
+    );
+    expect(rarified.state.worldview.items[0]?.rarity).toBe("전설");
+    const undone = applyCommand(rarified.state, rarified.inverse, 3000);
+    expect(undone.state.worldview.items[0]?.rarity).toBe("");
+
+    const colored = applyCommand(
+      seeded,
+      {
+        type: "add-item-palette-color",
+        itemId: item.id,
+        color: { id: "c1", role: "금속", color: "#b8863a" },
+      },
+      2000,
+    );
+    expect(colored.state.worldview.items[0]?.appearance.palette).toHaveLength(1);
+    const decolored = applyCommand(colored.state, colored.inverse, 3000);
+    expect(decolored.state.worldview.items[0]?.appearance.palette).toEqual([]);
   });
 });

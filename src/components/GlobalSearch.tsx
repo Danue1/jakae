@@ -7,6 +7,7 @@ import {
   Hexagon,
   MapPin,
   Search,
+  Swords,
   User,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -26,6 +27,7 @@ import {
   characterHref,
   eventHref,
   glossaryHref,
+  itemHref,
   organizationHref,
   placeHref,
   raceHref,
@@ -37,6 +39,7 @@ const KIND_ICON: Record<SearchResultKind, typeof User> = {
   group: Hexagon,
   place: MapPin,
   race: Dna,
+  item: Swords,
   glossary: BookText,
   chapter: Clock,
   event: Clock,
@@ -67,6 +70,7 @@ export function GlobalSearch({
     group: t("nav.organizations"),
     place: t("nav.places"),
     race: t("nav.races"),
+    item: t("nav.items"),
     glossary: t("nav.glossary"),
     chapter: t("timeline.heading"),
     event: t("timeline.heading"),
@@ -82,6 +86,8 @@ export function GlobalSearch({
         return placeHref(locale, worldviewId, id);
       case "race":
         return raceHref(locale, worldviewId, id);
+      case "item":
+        return itemHref(locale, worldviewId, id);
       case "glossary":
         return glossaryHref(locale, worldviewId, id);
       case "chapter":

@@ -112,7 +112,7 @@ export default function LibraryPage() {
                   {previewCharacters.map((character) => (
                     <Avatar
                       key={character.id}
-                      character={character}
+                      subject={character}
                       className="-mr-2 w-10 rounded-card border-2 border-ground"
                     />
                   ))}

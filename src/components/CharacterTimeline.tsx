@@ -51,7 +51,7 @@ export function CharacterTimeline({
     dispatchCommand({ type: "move-event", eventId: event.id, targetIndex });
   };
 
-  // 개인→세계관: 이 자캐를 참여자로 보존해 개인 연표에서 사라지지 않게 한다.
+  // 개인→세계관: 이 캐릭터를 참여자로 보존해 개인 연표에서 사라지지 않게 한다.
   const makeWorld = (event: TimelineEvent) => {
     dispatchCommand({
       type: "set-event-owner",

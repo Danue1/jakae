@@ -36,6 +36,7 @@ function entityKindLabelKey(kind: EntityKind) {
     | "entityKind.group"
     | "entityKind.place"
     | "entityKind.race"
+    | "entityKind.item"
     | "entityKind.glossary"
     | "entityKind.chapter"
     | "entityKind.event";

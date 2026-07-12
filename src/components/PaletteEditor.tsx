@@ -4,19 +4,25 @@ import { Plus, X } from "lucide-react";
 import { useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { useTranslations } from "next-intl";
-import type { Character, PaletteColor, Worldview } from "../core/model";
+import type { Character, Item, PaletteColor, Worldview } from "../core/model";
 import type { WorldviewCommand } from "../core/commands";
 import { dispatchCommand } from "../store/worldviewStore";
 
-// 팔레트는 캐릭터·세계관 양쪽에서 쓰이며, 대상에 따라 커맨드 계열만 달라진다.
+// 팔레트는 캐릭터·아이템·세계관에서 쓰이며, 대상에 따라 커맨드 계열만 달라진다.
 export type PaletteTarget =
   | { kind: "character"; character: Character }
+  | { kind: "item"; item: Item }
   | { kind: "worldview"; worldview: Worldview };
 
 function paletteColors(target: PaletteTarget): PaletteColor[] {
-  return target.kind === "character"
-    ? target.character.appearance.palette
-    : target.worldview.palette;
+  switch (target.kind) {
+    case "character":
+      return target.character.appearance.palette;
+    case "item":
+      return target.item.appearance.palette;
+    case "worldview":
+      return target.worldview.palette;
+  }
 }
 
 function setColorCommand(
@@ -24,27 +30,42 @@ function setColorCommand(
   colorIndex: number,
   color: PaletteColor,
 ): WorldviewCommand {
-  return target.kind === "character"
-    ? { type: "set-palette-color", characterId: target.character.id, colorIndex, color }
-    : { type: "set-worldview-palette-color", colorIndex, color };
+  switch (target.kind) {
+    case "character":
+      return { type: "set-palette-color", characterId: target.character.id, colorIndex, color };
+    case "item":
+      return { type: "set-item-palette-color", itemId: target.item.id, colorIndex, color };
+    case "worldview":
+      return { type: "set-worldview-palette-color", colorIndex, color };
+  }
 }
 
 function removeColorCommand(
   target: PaletteTarget,
   colorIndex: number,
 ): WorldviewCommand {
-  return target.kind === "character"
-    ? { type: "remove-palette-color", characterId: target.character.id, colorIndex }
-    : { type: "remove-worldview-palette-color", colorIndex };
+  switch (target.kind) {
+    case "character":
+      return { type: "remove-palette-color", characterId: target.character.id, colorIndex };
+    case "item":
+      return { type: "remove-item-palette-color", itemId: target.item.id, colorIndex };
+    case "worldview":
+      return { type: "remove-worldview-palette-color", colorIndex };
+  }
 }
 
 function addColorCommand(
   target: PaletteTarget,
   color: PaletteColor,
 ): WorldviewCommand {
-  return target.kind === "character"
-    ? { type: "add-palette-color", characterId: target.character.id, color }
-    : { type: "add-worldview-palette-color", color };
+  switch (target.kind) {
+    case "character":
+      return { type: "add-palette-color", characterId: target.character.id, color };
+    case "item":
+      return { type: "add-item-palette-color", itemId: target.item.id, color };
+    case "worldview":
+      return { type: "add-worldview-palette-color", color };
+  }
 }
 
 function PaletteSwatch({

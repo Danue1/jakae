@@ -204,7 +204,7 @@ export function OverviewPageClient() {
                   href={characterHref(locale, worldview.id, character.id)}
                   className="flex items-center gap-2.5 rounded-xl bg-hover p-2 hover:bg-accent-soft"
                 >
-                  <Avatar character={character} className="w-9 shrink-0" />
+                  <Avatar subject={character} className="w-9 shrink-0" />
                   <span className="truncate text-sm font-semibold">
                     {characterDisplayName(character, locale) || "-"}
                   </span>

@@ -20,7 +20,7 @@ export function worldHref(locale: Locale, worldviewId: string): string {
   return `/${locale}/world/?w=${worldviewId}`;
 }
 
-// 자캐 그리드 — 필터·검색·태그·휴지통 뷰 상태를 쿼리로 실어 나른다.
+// 캐릭터 그리드 — 필터·검색·태그·휴지통 뷰 상태를 쿼리로 실어 나른다.
 export function charactersHref(
   locale: Locale,
   worldviewId: string,
@@ -90,6 +90,18 @@ export function raceHref(
   raceId: string,
 ): string {
   return `/${locale}/race/?w=${worldviewId}&r=${raceId}`;
+}
+
+export function itemListHref(locale: Locale, worldviewId: string): string {
+  return `/${locale}/item/?w=${worldviewId}`;
+}
+
+export function itemHref(
+  locale: Locale,
+  worldviewId: string,
+  itemId: string,
+): string {
+  return `/${locale}/item/?w=${worldviewId}&i=${itemId}`;
 }
 
 export function glossaryListHref(locale: Locale, worldviewId: string): string {

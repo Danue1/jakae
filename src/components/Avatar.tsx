@@ -1,6 +1,24 @@
-import { characterCoverImage, type Character } from "../core/model";
+import type { CharacterAppearance, CharacterImage } from "../core/model";
 import { useImageUrl } from "../react/useImageUrl";
 import { cn } from "@/lib/utils";
+
+// 아바타가 필요한 최소 형태 — 캐릭터·아이템 모두 이미지·배경(appearance)을 가지므로 구조적으로 공유한다.
+export interface AvatarSubject {
+  id: string;
+  name: string;
+  images: CharacterImage[];
+  coverImageId: string | null;
+  appearance: CharacterAppearance;
+}
+
+function subjectCoverImage(subject: AvatarSubject): CharacterImage | null {
+  if (subject.images.length === 0) return null;
+  return (
+    subject.images.find((image) => image.id === subject.coverImageId) ??
+    subject.images[0] ??
+    null
+  );
+}
 
 export const PRESET_BACKGROUND_COLORS = [
   "#cfe0f6",
@@ -29,19 +47,19 @@ function tintPairForIdentifier(identifier: string): [string, string] {
 }
 
 export function Avatar({
-  character,
+  subject,
   className,
   fill = false,
 }: {
-  character: Character;
+  subject: AvatarSubject;
   className?: string;
   // 가로 카드의 썸네일 열처럼 부모 크기에 꽉 채워야 할 때 정사각 대신 size-full로 전환.
   fill?: boolean;
 }) {
-  const imageUrl = useImageUrl(characterCoverImage(character)?.blobId ?? null);
-  const [autoTint, autoInk] = tintPairForIdentifier(character.id);
-  const backgroundColor = character.appearance.backgroundColor ?? autoTint;
-  const silhouetteColor = character.appearance.backgroundColor
+  const imageUrl = useImageUrl(subjectCoverImage(subject)?.blobId ?? null);
+  const [autoTint, autoInk] = tintPairForIdentifier(subject.id);
+  const backgroundColor = subject.appearance.backgroundColor ?? autoTint;
+  const silhouetteColor = subject.appearance.backgroundColor
     ? "rgb(28 33 40 / 0.32)"
     : autoInk;
   return (
@@ -56,7 +74,7 @@ export function Avatar({
       {imageUrl ? (
         <img
           src={imageUrl}
-          alt={character.name}
+          alt={subject.name}
           className="h-full w-full object-cover"
         />
       ) : (

@@ -109,7 +109,7 @@ describe("타임라인 커맨드", () => {
     ]);
   });
 
-  it("자캐 영구 삭제 시 개인 사건은 통째로, 참여자는 제거되고 복원으로 되돌아온다", () => {
+  it("캐릭터 영구 삭제 시 개인 사건은 통째로, 참여자는 제거되고 복원으로 되돌아온다", () => {
     const { state, gagaId, hohoId } = buildState();
     const worldEvent = createTimelineEvent({ chapterId: null });
     worldEvent.participants = [

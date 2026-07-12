@@ -73,7 +73,7 @@ export function EventParticipantEditor({
               href={characterHref(locale, worldview.id, target.id)}
               className="flex min-w-0 items-center gap-2"
             >
-              <Avatar character={target} className="w-9 rounded-lg" />
+              <Avatar subject={target} className="w-9 rounded-lg" />
               <span className="min-w-0 truncate text-xs text-muted">
                 {characterDisplayName(target, locale) || "-"}
               </span>
