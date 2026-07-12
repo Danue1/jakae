@@ -4,6 +4,7 @@ import { normalizeCharacterRecord } from "./legacy";
 import {
   characterCoverImage,
   createCharacter,
+  createReference,
   createWorldview,
   type Character,
 } from "./model";
@@ -162,31 +163,29 @@ describe("팔레트 커맨드", () => {
   });
 });
 
-describe("set-relation 커맨드", () => {
+describe("참조(관계) 커맨드", () => {
   it("라벨 수정이 역커맨드로 복원된다", () => {
     const { state, gagaId, hohoId } = buildState();
-    const withRelation = applyCommand(
+    const reference = createReference(
+      "character",
+      gagaId,
+      "character",
+      hohoId,
+      "손자",
+    );
+    const withReference = applyCommand(
       state,
-      {
-        type: "add-relation",
-        characterId: gagaId,
-        relation: { targetCharacterId: hohoId, label: "손자" },
-      },
+      { type: "add-reference", reference },
       2000,
     ).state;
     const edited = applyCommand(
-      withRelation,
-      {
-        type: "set-relation",
-        characterId: gagaId,
-        relationIndex: 0,
-        relation: { targetCharacterId: hohoId, label: "손주" },
-      },
+      withReference,
+      { type: "set-reference-label", referenceId: reference.id, label: "손주" },
       3000,
     );
-    expect(characterById(edited.state, gagaId).relations[0]?.label).toBe("손주");
+    expect(edited.state.worldview.references[0]?.label).toBe("손주");
     const reverted = applyCommand(edited.state, edited.inverse, 4000);
-    expect(characterById(reverted.state, gagaId).relations[0]?.label).toBe("손자");
+    expect(reverted.state.worldview.references[0]?.label).toBe("손자");
   });
 });
 
@@ -200,8 +199,6 @@ describe("레거시 정규화", () => {
       fieldValues: {},
       personalityTags: [],
       story: "",
-      relations: [],
-      groupIds: [],
       favorite: false,
       deletedAt: null,
       createdAt: 1,
@@ -224,8 +221,6 @@ describe("레거시 정규화", () => {
       fieldValues: {},
       personalityTags: [],
       story: "",
-      relations: [],
-      groupIds: [],
       favorite: false,
       deletedAt: null,
       createdAt: 1,

@@ -80,6 +80,18 @@ export function placeHref(
   return `/${locale}/place/?w=${worldviewId}&p=${placeId}`;
 }
 
+export function raceListHref(locale: Locale, worldviewId: string): string {
+  return `/${locale}/race/?w=${worldviewId}`;
+}
+
+export function raceHref(
+  locale: Locale,
+  worldviewId: string,
+  raceId: string,
+): string {
+  return `/${locale}/race/?w=${worldviewId}&r=${raceId}`;
+}
+
 export function glossaryListHref(locale: Locale, worldviewId: string): string {
   return `/${locale}/glossary/?w=${worldviewId}`;
 }

@@ -1,11 +1,12 @@
 "use client";
 
-import { Plus, Search, Star } from "lucide-react";
+import { Plus, Search, Star, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CharacterCard } from "@/components/CharacterCard";
+import { ListHeader } from "@/components/ListHeader";
+import { galleryGridClass, tableClass } from "@/components/EntityList";
 import { MissingWorldview } from "@/components/MissingWorldview";
-import { SavedIndicator } from "@/components/SavedIndicator";
 import { WorldShell } from "@/components/WorldShell";
 import {
   AlertDialog,
@@ -30,6 +31,7 @@ import {
 } from "@/core/selectors";
 import { characterHref, charactersHref, parseViewState } from "@/react/links";
 import { useLocale, useTranslations } from "next-intl";
+import { useListView } from "@/react/useListView";
 import { useOpenWorldview } from "@/react/useOpenWorldview";
 import { useWorldviewStore } from "@/react/useWorldviewStore";
 import { dispatchCommand } from "@/store/worldviewStore";
@@ -46,13 +48,17 @@ export function CharactersPageClient() {
   const loadStatus = useOpenWorldview(worldviewId);
   const worldview = useWorldviewStore((state) => state.worldview);
   const characters = useWorldviewStore((state) => state.characters);
+  const { view, setView } = useListView();
   const [searchDraft, setSearchDraft] = useState(viewState.query);
   const [pendingDelete, setPendingDelete] = useState<Character | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const updateViewState = (patch: Partial<ViewState>) => {
     if (!worldviewId) return;
-    router.replace(charactersHref(locale, worldviewId, { ...viewState, ...patch }));
+    // charactersHref는 필터·검색만 싣는다 — 갤러리/표 선택(list)은 별도 파라미터라 유지해 준다.
+    const href = charactersHref(locale, worldviewId, { ...viewState, ...patch });
+    const list = searchParams.get("list");
+    router.replace(list ? `${href}&list=${list}` : href);
   };
 
   useEffect(() => {
@@ -73,13 +79,17 @@ export function CharactersPageClient() {
     return null;
   }
 
-  const visibleCharacters = selectVisibleCharacters(characters, viewState, locale);
+  const visibleCharacters = selectVisibleCharacters(
+    worldview,
+    characters,
+    viewState,
+    locale,
+  );
   const inTrash = viewState.view === "trash";
   const allTags = selectAllTags(characters);
 
   const addCharacter = () => {
     const character = createCharacter(worldview.id);
-    if (viewState.groupId) character.groupIds = [viewState.groupId];
     dispatchCommand({ type: "create-character", character });
     router.push(characterHref(locale, worldview.id, character.id));
   };
@@ -97,16 +107,22 @@ export function CharactersPageClient() {
   return (
     <WorldShell active="characters" worldviewId={worldview.id}>
       <div className="mx-auto max-w-page px-4 pb-28 pt-5 sm:px-6">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-extrabold tracking-tight">
-            {t("nav.characters")}
-          </h1>
-          <span className="ml-auto hidden lg:block">
-            <SavedIndicator />
-          </span>
-        </div>
+        <ListHeader
+          icon={Users}
+          title={t("nav.characters")}
+          view={view}
+          onViewChange={setView}
+          trailing={
+            inTrash ? undefined : (
+              <Button size="sm" onClick={addCharacter}>
+                <Plus size={15} aria-hidden="true" />
+                {t("world.addCharacter")}
+              </Button>
+            )
+          }
+        />
 
-        <div className="mt-3 flex items-center gap-2 rounded-xl bg-hover px-3.5 py-2.5">
+        <div className="mt-4 flex items-center gap-2 rounded-xl bg-hover px-3.5 py-2.5">
           <Search size={16} aria-hidden="true" className="shrink-0 text-muted" />
           <input
             ref={searchInputRef}
@@ -197,36 +213,23 @@ export function CharactersPageClient() {
             </div>
           </div>
         ) : (
-          <div className="mt-5 grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <div
+            className={cn(
+              "mt-4",
+              view === "gallery" ? galleryGridClass : tableClass,
+            )}
+          >
             {visibleCharacters.map((character) => (
               <CharacterCard
                 key={character.id}
                 character={character}
                 worldview={worldview}
+                view={view}
                 inTrash={inTrash}
                 onRequestDeleteForever={setPendingDelete}
               />
             ))}
-            {viewState.view === "all" && (
-              <button
-                className="hidden aspect-square items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-line font-bold text-accent hover:bg-accent-soft sm:flex"
-                onClick={addCharacter}
-              >
-                <Plus size={18} aria-hidden="true" />
-                {t("world.addCharacter")}
-              </button>
-            )}
           </div>
-        )}
-
-        {viewState.view === "all" && (
-          <button
-            aria-label={t("world.addCharacter")}
-            className="fixed bottom-5 right-5 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-popover sm:hidden"
-            onClick={addCharacter}
-          >
-            <Plus size={26} aria-hidden="true" />
-          </button>
         )}
 
         <AlertDialog

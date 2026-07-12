@@ -3,6 +3,7 @@ import { applyCommand, type WorldviewState } from "./commands";
 import {
   characterDisplayName,
   createCharacter,
+  createReference,
   createWorldview,
   fieldDisplayValue,
 } from "./model";
@@ -20,7 +21,9 @@ function buildState(): {
   const worldview = createWorldview("어쩌구 우주", SEED_DEFAULTS, "ko", "2020", 1000);
   const gaga = createCharacter(worldview.id, "가가", 1000);
   const cat = createCharacter(worldview.id, "고영희", 1000);
-  gaga.relations = [{ targetCharacterId: cat.id, label: "집사" }];
+  worldview.references = [
+    createReference("character", gaga.id, "character", cat.id, "집사"),
+  ];
   const ageField = worldview.fieldDefinitions[0];
   if (!ageField) throw new Error("시드 필드 누락");
   gaga.fieldValues[ageField.id] = "15";
@@ -113,7 +116,6 @@ describe("applyCommand", () => {
       title: "사건",
       titleTranslations: {},
       when: "",
-      place: "",
       placeId: "p-region",
       description: "",
       participants: [],
@@ -267,26 +269,21 @@ describe("applyCommand", () => {
     ).toEqual({});
   });
 
-  it("영구 삭제는 역참조 관계를 정리하고, 역커맨드가 관계까지 복원한다", () => {
-    const { state, gagaId, catId } = buildState();
+  it("영구 삭제는 캐릭터만 지우고 참조는 남겨 둔다(되돌리면 자캐가 살아나 재연결)", () => {
+    const { state, catId } = buildState();
     const applied = applyCommand(
       state,
       { type: "delete-character-permanently", characterId: catId },
       2000,
     );
     expect(applied.state.characters).toHaveLength(1);
-    expect(
-      applied.state.characters.find((character) => character.id === gagaId)
-        ?.relations,
-    ).toHaveLength(0);
+    // 참조는 지우지 않는다 — 미해결 상태로 남고, 되돌리면 자동 재연결된다.
+    expect(applied.state.worldview.references).toHaveLength(1);
     expect(applied.dirty.removedCharacterIds).toEqual([catId]);
 
     const undone = applyCommand(applied.state, applied.inverse, 3000);
     expect(undone.state.characters).toHaveLength(2);
-    expect(
-      undone.state.characters.find((character) => character.id === gagaId)
-        ?.relations,
-    ).toEqual([{ targetCharacterId: catId, label: "집사" }]);
+    expect(undone.state.worldview.references[0]?.label).toBe("집사");
   });
 
   it("필드 삭제는 전 캐릭터의 값을 정리하고, 역커맨드가 순서와 값을 복원한다", () => {

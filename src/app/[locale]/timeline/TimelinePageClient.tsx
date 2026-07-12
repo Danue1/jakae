@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  Clock,
   EllipsisVertical,
   Pencil,
   Plus,
@@ -12,9 +13,17 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Avatar } from "@/components/Avatar";
+import {
+  AvatarStack,
+  EntityCard,
+  IconCardThumb,
+  WhenCardThumb,
+  galleryGridClass,
+} from "@/components/EntityList";
+import { ListHeader } from "@/components/ListHeader";
 import { MissingWorldview } from "@/components/MissingWorldview";
-import { SavedIndicator } from "@/components/SavedIndicator";
 import { WorldShell } from "@/components/WorldShell";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,9 +43,11 @@ import {
 import { eventMoveTargetIndex, selectWorldTimeline } from "@/core/selectors";
 import { chapterHref, eventHref } from "@/react/links";
 import { useLocale, useTranslations } from "next-intl";
+import { useListView } from "@/react/useListView";
 import { useOpenWorldview } from "@/react/useOpenWorldview";
 import { useWorldviewStore } from "@/react/useWorldviewStore";
 import { dispatchCommand } from "@/store/worldviewStore";
+import { cn } from "@/lib/utils";
 
 function ReorderButtons({
   onUp,
@@ -200,6 +211,56 @@ function EventRow({
   );
 }
 
+// 갤러리 뷰의 사건 카드 — 시점 칩 썸네일 + 제목 + 참여 자캐/개인 배지. 재정렬은 표 뷰에서.
+function EventCard({
+  event,
+  worldview,
+  characters,
+}: {
+  event: TimelineEvent;
+  worldview: Worldview;
+  characters: Character[];
+}) {
+  const locale = useLocale();
+  const t = useTranslations();
+  const participants = event.participants
+    .map((participant) =>
+      characters.find(
+        (character) =>
+          character.id === participant.characterId &&
+          character.deletedAt === null,
+      ),
+    )
+    .filter((character): character is Character => Boolean(character));
+
+  const meta =
+    participants.length > 0 || event.ownerCharacterId !== null ? (
+      <>
+        <AvatarStack characters={participants} />
+        {event.ownerCharacterId !== null && (
+          <span className="rounded-full bg-hover px-2 py-0.5 text-xs font-semibold text-muted">
+            {t("timeline.badgePersonal")}
+          </span>
+        )}
+      </>
+    ) : undefined;
+
+  return (
+    <EntityCard
+      href={eventHref(locale, worldview.id, event.id)}
+      thumb={
+        event.when ? (
+          <WhenCardThumb when={event.when} />
+        ) : (
+          <IconCardThumb icon={Clock} />
+        )
+      }
+      name={eventDisplayTitle(event, locale) || t("timeline.untitledEvent")}
+      meta={meta}
+    />
+  );
+}
+
 export function TimelinePageClient() {
   const locale = useLocale();
   const t = useTranslations();
@@ -210,6 +271,7 @@ export function TimelinePageClient() {
   const loadStatus = useOpenWorldview(worldviewId);
   const worldview = useWorldviewStore((state) => state.worldview);
   const characters = useWorldviewStore((state) => state.characters);
+  const { view, setView } = useListView();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   if (loadStatus === "missing") return <MissingWorldview />;
@@ -262,14 +324,30 @@ export function TimelinePageClient() {
   return (
     <WorldShell active="timeline" worldviewId={worldview.id}>
     <div className="mx-auto max-w-page px-4 pb-28 pt-5 sm:px-6">
-      <div className="flex items-center gap-2">
-        <h1 className="text-xl font-extrabold tracking-tight">
-          {t("timeline.heading")}
-        </h1>
-        <span className="ml-auto hidden lg:block">
-          <SavedIndicator />
-        </span>
-      </div>
+      <ListHeader
+        icon={Clock}
+        title={t("timeline.heading")}
+        view={view}
+        onViewChange={setView}
+        trailing={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm">
+                <Plus size={15} aria-hidden="true" />
+                {t("common.add")}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={addChapter}>
+                {t("timeline.addChapter")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => addEvent(null)}>
+                {t("timeline.addEvent")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      />
 
       {groups.length === 0 ? (
         <p className="py-20 text-center text-sm text-muted">
@@ -342,19 +420,32 @@ export function TimelinePageClient() {
 
                 {!isCollapsed && (
                   <>
-                    <div className="mt-2 flex flex-col gap-1">
-                      {group.events.map((event, eventIndex) => (
-                        <EventRow
-                          key={event.id}
-                          event={event}
-                          worldview={worldview}
-                          characters={characters}
-                          siblings={group.events}
-                          index={eventIndex}
-                          groupChapterId={group.chapter?.id ?? null}
-                        />
-                      ))}
-                    </div>
+                    {view === "gallery" ? (
+                      <div className={cn("mt-3", galleryGridClass)}>
+                        {group.events.map((event) => (
+                          <EventCard
+                            key={event.id}
+                            event={event}
+                            worldview={worldview}
+                            characters={characters}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex flex-col gap-1">
+                        {group.events.map((event, eventIndex) => (
+                          <EventRow
+                            key={event.id}
+                            event={event}
+                            worldview={worldview}
+                            characters={characters}
+                            siblings={group.events}
+                            index={eventIndex}
+                            groupChapterId={group.chapter?.id ?? null}
+                          />
+                        ))}
+                      </div>
+                    )}
                     {group.chapter && (
                       <button
                         className="mt-2 flex items-center gap-1 px-2 text-xs font-bold text-accent hover:underline"
@@ -371,23 +462,6 @@ export function TimelinePageClient() {
           })}
         </div>
       )}
-
-      <div className="mt-8 flex flex-col gap-2 sm:flex-row">
-        <button
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-line py-2.5 text-sm font-bold text-accent hover:bg-accent-soft"
-          onClick={addChapter}
-        >
-          <Plus size={16} aria-hidden="true" />
-          {t("timeline.addChapter")}
-        </button>
-        <button
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-line py-2.5 text-sm font-bold text-accent hover:bg-accent-soft"
-          onClick={() => addEvent(null)}
-        >
-          <Plus size={16} aria-hidden="true" />
-          {t("timeline.addEvent")}
-        </button>
-      </div>
     </div>
     </WorldShell>
   );

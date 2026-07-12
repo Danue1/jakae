@@ -13,6 +13,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LocaleTabs } from "@/components/LocaleTabs";
 import { MissingWorldview } from "@/components/MissingWorldview";
+import { References } from "@/components/References";
 import { SavedIndicator } from "@/components/SavedIndicator";
 import { WorldShell } from "@/components/WorldShell";
 import {
@@ -63,6 +64,7 @@ export function ChapterPageClient() {
 
   const loadStatus = useOpenWorldview(worldviewId);
   const worldview = useWorldviewStore((state) => state.worldview);
+  const characters = useWorldviewStore((state) => state.characters);
   const [nameLocale, setNameLocale] = useState<Locale>(locale);
   const [pendingDelete, setPendingDelete] = useState(false);
 
@@ -281,6 +283,16 @@ export function ChapterPageClient() {
           <Plus size={16} aria-hidden="true" />
           {t("chapter.addEvent")}
         </button>
+      </section>
+
+      <section className="mt-6">
+        <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
+        <References
+          worldview={worldview}
+          characters={characters}
+          kind="chapter"
+          id={chapter.id}
+        />
       </section>
 
       <AlertDialog

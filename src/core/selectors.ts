@@ -5,9 +5,13 @@ import {
   glossaryTermDisplayName,
   groupDisplayName,
   placeDisplayName,
+  raceDisplayName,
   type Character,
   type Chapter,
+  type EntityKind,
   type Place,
+  type Race,
+  type Reference,
   type TimelineEvent,
   type Worldview,
 } from "./model";
@@ -61,6 +65,7 @@ export function selectAllTags(characters: Character[]): string[] {
 }
 
 export function selectVisibleCharacters(
+  worldview: Worldview,
   characters: Character[],
   viewState: ViewState,
   locale: string,
@@ -73,7 +78,9 @@ export function selectVisibleCharacters(
     visible = visible.filter((character) => character.favorite);
   if (viewState.groupId !== null) {
     const groupId = viewState.groupId;
-    visible = visible.filter((character) => character.groupIds.includes(groupId));
+    visible = visible.filter((character) =>
+      characterReferencesEntity(worldview, character, "group", groupId),
+    );
   }
   if (viewState.tag !== null) {
     const tag = viewState.tag;
@@ -99,6 +106,7 @@ export type SearchResultKind =
   | "character"
   | "group"
   | "place"
+  | "race"
   | "glossary"
   | "chapter"
   | "event";
@@ -153,6 +161,13 @@ export function selectGlobalSearchResults(
         id: place.id,
         name: placeDisplayName(place, locale),
       });
+  for (const race of worldview.races)
+    if (matches(race.name, race.nameTranslations))
+      results.push({
+        kind: "race",
+        id: race.id,
+        name: raceDisplayName(race, locale),
+      });
   for (const term of worldview.glossary)
     if (matches(term.name, term.nameTranslations))
       results.push({
@@ -177,14 +192,66 @@ export function selectGlobalSearchResults(
   return results;
 }
 
-// 조직 구성원 = 그 조직에 속한(휴지통 제외) 캐릭터. 이름순 정렬.
-export function selectOrganizationMembers(
+// 참조(관계)는 worldview.references의 독립 간선이다. 아래 헬퍼들이 나가는/들어오는 참조와 필터를 담당한다.
+
+// 이 캐릭터가 해당 엔티티를 (어떤 라벨로든) 가리키는가 — 캐릭터 목록의 조직별 필터에 쓴다.
+export function characterReferencesEntity(
+  worldview: Worldview,
+  character: Character,
+  targetKind: EntityKind,
+  targetId: string,
+): boolean {
+  return worldview.references.some(
+    (reference) =>
+      reference.sourceKind === "character" &&
+      reference.sourceId === character.id &&
+      reference.targetKind === targetKind &&
+      reference.targetId === targetId,
+  );
+}
+
+// 이 엔티티에서 나가는 참조(이 엔티티가 출발점). 배열 순서 유지.
+export function selectOutgoingReferences(
+  worldview: Worldview,
+  kind: EntityKind,
+  id: string,
+): Reference[] {
+  return worldview.references.filter(
+    (reference) => reference.sourceKind === kind && reference.sourceId === id,
+  );
+}
+
+// 이 엔티티로 들어오는 참조(이 엔티티가 대상) = 백링크. 배열 순서 유지.
+export function selectIncomingReferences(
+  worldview: Worldview,
+  kind: EntityKind,
+  id: string,
+): Reference[] {
+  return worldview.references.filter(
+    (reference) => reference.targetKind === kind && reference.targetId === id,
+  );
+}
+
+// 이 엔티티를 참조하는 (휴지통 제외) 고유 캐릭터 — 목록의 구성원 아바타 등에 쓴다. 이름순.
+export function selectReferencingCharacters(
+  worldview: Worldview,
   characters: Character[],
-  groupId: string,
+  targetKind: EntityKind,
+  targetId: string,
   locale: string,
 ): Character[] {
+  const sourceIds = new Set(
+    worldview.references
+      .filter(
+        (reference) =>
+          reference.sourceKind === "character" &&
+          reference.targetKind === targetKind &&
+          reference.targetId === targetId,
+      )
+      .map((reference) => reference.sourceId),
+  );
   return selectActiveCharacters(characters)
-    .filter((character) => character.groupIds.includes(groupId))
+    .filter((character) => sourceIds.has(character.id))
     .sort((first, second) =>
       characterDisplayName(first, locale).localeCompare(
         characterDisplayName(second, locale),
@@ -198,6 +265,18 @@ export function selectChildPlaces(
   parentId: string,
 ): Place[] {
   return worldview.places.filter((place) => place.parentId === parentId);
+}
+
+export function selectChildRaces(worldview: Worldview, parentId: string): Race[] {
+  return worldview.races.filter((race) => race.parentId === parentId);
+}
+
+// 상위 종족이 없는(최상위 계통) 종족들 — 트리 루트. 부모 참조가 끊긴 경우도 루트로 취급.
+export function selectRootRaces(worldview: Worldview): Race[] {
+  const raceIds = new Set(worldview.races.map((race) => race.id));
+  return worldview.races.filter(
+    (race) => race.parentId === null || !raceIds.has(race.parentId),
+  );
 }
 
 // 상위 장소가 없는(최상위) 장소들 — 트리 루트. 부모 참조가 끊긴 경우도 루트로 취급.

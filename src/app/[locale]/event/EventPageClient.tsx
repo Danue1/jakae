@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { EventParticipantEditor } from "@/components/EventParticipantEditor";
+import { References } from "@/components/References";
 import { LocaleTabs } from "@/components/LocaleTabs";
 import { MissingWorldview } from "@/components/MissingWorldview";
 import { SavedIndicator } from "@/components/SavedIndicator";
@@ -272,7 +273,7 @@ export function EventPageClient() {
                 })
               }
             >
-              <SelectTrigger className="w-44 shrink-0 bg-hover">
+              <SelectTrigger className="flex-1 bg-hover">
                 <SelectValue placeholder={t("event.placeSelectNone")} />
               </SelectTrigger>
               <SelectContent>
@@ -286,18 +287,11 @@ export function EventPageClient() {
                 ))}
               </SelectContent>
             </Select>
-          ) : null}
-          <Input
-            placeholder="-"
-            value={event.place}
-            onChange={(changeEvent) =>
-              dispatchCommand({
-                type: "set-event-place",
-                eventId: event.id,
-                place: changeEvent.target.value,
-              })
-            }
-          />
+          ) : (
+            <span className="text-sm text-muted">
+              {t("event.placeSelectNone")}
+            </span>
+          )}
         </div>
       </div>
 
@@ -323,6 +317,16 @@ export function EventPageClient() {
           worldview={worldview}
           event={event}
           characters={characters}
+        />
+      </section>
+
+      <section className="mt-6">
+        <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
+        <References
+          worldview={worldview}
+          characters={characters}
+          kind="event"
+          id={event.id}
         />
       </section>
 

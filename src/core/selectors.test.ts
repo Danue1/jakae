@@ -93,6 +93,7 @@ describe("selectVisibleCharacters", () => {
 
     expect(
       selectVisibleCharacters(
+        worldview,
         characters,
         { ...defaultViewState, query: "조용" },
         "ko",
@@ -100,6 +101,7 @@ describe("selectVisibleCharacters", () => {
     ).toEqual(["가가"]);
     expect(
       selectVisibleCharacters(
+        worldview,
         characters,
         { ...defaultViewState, query: "gaga" },
         "en",
@@ -116,12 +118,12 @@ describe("selectVisibleCharacters", () => {
     const characters = [first, second];
 
     expect(
-      selectVisibleCharacters(characters, defaultViewState, "ko").map(
+      selectVisibleCharacters(worldview, characters, defaultViewState,"ko").map(
         (character) => character.name,
       ),
     ).toEqual(["가가", "고영희"]);
     expect(
-      selectVisibleCharacters(characters, defaultViewState, "en").map(
+      selectVisibleCharacters(worldview, characters, defaultViewState,"en").map(
         (character) => character.name,
       ),
     ).toEqual(["고영희", "가가"]);
@@ -138,6 +140,7 @@ describe("selectVisibleCharacters", () => {
 
     expect(
       selectVisibleCharacters(
+        worldview,
         characters,
         { ...defaultViewState, tag: "주연" },
         "ko",
@@ -156,6 +159,7 @@ describe("selectVisibleCharacters", () => {
 
     expect(
       selectVisibleCharacters(
+        worldview,
         characters,
         { ...defaultViewState, view: "favorites" },
         "ko",
@@ -163,6 +167,7 @@ describe("selectVisibleCharacters", () => {
     ).toEqual(["가가"]);
     expect(
       selectVisibleCharacters(
+        worldview,
         characters,
         { ...defaultViewState, view: "trash" },
         "ko",
@@ -194,14 +199,16 @@ describe("characterCaptionDetail", () => {
     if (!ageField || !speciesField) throw new Error("시드 필드 누락");
     character.fieldValues[ageField.id] = "15";
 
-    expect(characterCaptionDetail(worldview, character, "ko")).toBe("15 · -");
+    expect(characterCaptionDetail(worldview, character,"ko")).toBe("15 · -");
 
     character.fieldValues[speciesField.id] = "인간";
     const reordered = {
       ...worldview,
       fieldDefinitions: [speciesField, ageField],
     };
-    expect(characterCaptionDetail(reordered, character, "ko")).toBe("인간 · 15");
+    expect(characterCaptionDetail(reordered, character, "ko")).toBe(
+      "인간 · 15",
+    );
   });
 
   it("언어별 필드는 표시 언어의 값을 쓰고 없으면 원본으로 폴백한다", () => {
@@ -213,9 +220,9 @@ describe("characterCaptionDetail", () => {
     character.fieldValues[speciesField.id] = "인간";
     character.fieldValueTranslations[speciesField.id] = { en: "Human" };
 
-    expect(characterCaptionDetail(worldview, character, "en")).toBe(
+    expect(characterCaptionDetail(worldview, character,"en")).toBe(
       "- · Human",
     );
-    expect(characterCaptionDetail(worldview, character, "ja")).toBe("- · 인간");
+    expect(characterCaptionDetail(worldview, character,"ja")).toBe("- · 인간");
   });
 });

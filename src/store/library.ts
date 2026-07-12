@@ -5,6 +5,8 @@ import {
   type Worldview,
   type WorldviewSeedDefaults,
 } from "../core/model";
+import { type Locale } from "../locales/config";
+import { defaultCharacterFields } from "../locales/fieldPresets";
 import { worldviewPreviewCharacters } from "../core/selectors";
 
 export interface WorldviewListEntry {
@@ -35,6 +37,7 @@ export async function createAndSaveWorldview(
   primaryLocale: string,
 ): Promise<Worldview> {
   const worldview = createWorldview(name, seedDefaults, primaryLocale);
+  worldview.fieldDefinitions = defaultCharacterFields(primaryLocale as Locale);
   await indexedDbStorage.writeBatch({ worldview });
   return worldview;
 }

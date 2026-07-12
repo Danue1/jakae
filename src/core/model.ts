@@ -1,5 +1,27 @@
 // 필드 타입 — text는 자유 서술, number는 범위·단위, select는 옵션 중 고르기, date는 월·일.
+// 엔티티 간 참조(관계)는 필드가 아니라 세계관 수준의 독립 컬렉션(worldview.references)으로 다룬다.
 export type FieldType = "text" | "number" | "select" | "date";
+
+// 참조 가능한 엔티티 종류 — 새 로어 엔티티가 생기면 여기에만 추가하면
+// 참조 대상 후보·표시·백링크에 자동으로 편입된다.
+export type EntityKind =
+  | "character"
+  | "group"
+  | "place"
+  | "race"
+  | "glossary"
+  | "chapter"
+  | "event";
+
+export const ENTITY_KINDS: EntityKind[] = [
+  "character",
+  "group",
+  "place",
+  "race",
+  "glossary",
+  "chapter",
+  "event",
+];
 
 // 선택 필드의 옵션 한 칸 — id는 값 저장에 쓰는 안정 키, label은 표시 이름.
 export interface FieldOption {
@@ -58,8 +80,8 @@ export function serializeSelectValue(optionIds: string[]): string {
   return optionIds.join(MULTI_VALUE_SEPARATOR);
 }
 
-// 조직(세력·단체) — 캐릭터를 묶는 그룹에서 승격된 로어 엔티티. 다국어 이름·설명을 갖는다.
-// 캐릭터 소속은 여전히 Character.groupIds로 표현한다.
+// 조직(세력·단체) — 캐릭터를 묶는 로어 엔티티. 다국어 이름·설명을 갖는다.
+// 캐릭터의 소속은 worldview.references의 참조(대상 종류=group)로 표현한다.
 export interface Group {
   id: string;
   name: string;
@@ -67,8 +89,14 @@ export interface Group {
   description: string;
 }
 
-export interface Relation {
-  targetCharacterId: string;
+// 엔티티 간 참조(관계) — 어떤 엔티티든 다른 엔티티를 라벨 붙여 가리킨다. 방향이 있는 라벨 간선.
+// 엔티티에 종속되지 않고 세계관 수준(worldview.references)에 독립적으로 모여 산다.
+export interface Reference {
+  id: string;
+  sourceKind: EntityKind;
+  sourceId: string;
+  targetKind: EntityKind;
+  targetId: string;
   label: string;
 }
 
@@ -100,6 +128,32 @@ export interface GlossaryTerm {
   description: string;
 }
 
+// 종족 간 관계 — 대상 종족과 자유 라벨(적대·동맹·파생 등). 캐릭터 관계(Relation)와 같은 형태.
+export interface RaceRelation {
+  targetRaceId: string;
+  label: string;
+}
+
+// 종족의 구조화 속성 키 — 모두 자유 서술 문자열. 값 설정은 set-race-attribute 하나로 처리한다.
+export type RaceAttributeKey = "lifespan" | "height" | "origin" | "language";
+
+// 종족 — 캐릭터가 raceId로 소속되는 로어 엔티티. parentId로 계통(아종) 계층을 이루고,
+// symbolColor는 상징색(HEX, 미지정 null), 속성·특성·종족 간 관계를 함께 갖는다.
+export interface Race {
+  id: string;
+  name: string;
+  nameTranslations: Record<string, string>;
+  symbolColor: string | null;
+  parentId: string | null;
+  lifespan: string;
+  height: string;
+  origin: string;
+  language: string;
+  traits: string[];
+  relations: RaceRelation[];
+  description: string;
+}
+
 export interface EventParticipant {
   characterId: string;
   role: string;
@@ -114,7 +168,6 @@ export interface TimelineEvent {
   title: string;
   titleTranslations: Record<string, string>;
   when: string;
-  place: string;
   placeId: string | null;
   description: string;
   participants: EventParticipant[];
@@ -134,9 +187,12 @@ export interface Worldview {
   fieldDefinitions: FieldDefinition[];
   groups: Group[];
   places: Place[];
+  races: Race[];
   glossary: GlossaryTerm[];
   chapters: Chapter[];
   events: TimelineEvent[];
+  // 엔티티 간 참조(관계)의 독립 컬렉션 — 어떤 엔티티든 출발점·대상이 될 수 있다.
+  references: Reference[];
   createdAt: number;
   modifiedAt: number;
 }
@@ -182,8 +238,6 @@ export interface Character {
   tags: string[];
   quotes: CharacterQuote[];
   story: string;
-  relations: Relation[];
-  groupIds: string[];
   favorite: boolean;
   deletedAt: number | null;
   createdAt: number;
@@ -219,11 +273,30 @@ export function createWorldview(
     })),
     groups: [],
     places: [],
+    races: [],
     glossary: [],
     chapters: [],
     events: [],
+    references: [],
     createdAt: timestamp,
     modifiedAt: timestamp,
+  };
+}
+
+export function createReference(
+  sourceKind: EntityKind,
+  sourceId: string,
+  targetKind: EntityKind,
+  targetId: string,
+  label = "",
+): Reference {
+  return {
+    id: crypto.randomUUID(),
+    sourceKind,
+    sourceId,
+    targetKind,
+    targetId,
+    label,
   };
 }
 
@@ -256,6 +329,23 @@ export function createGlossaryTerm(name = ""): GlossaryTerm {
   };
 }
 
+export function createRace(name = ""): Race {
+  return {
+    id: crypto.randomUUID(),
+    name,
+    nameTranslations: {},
+    symbolColor: null,
+    parentId: null,
+    lifespan: "",
+    height: "",
+    origin: "",
+    language: "",
+    traits: [],
+    relations: [],
+    description: "",
+  };
+}
+
 export function createChapter(name = ""): Chapter {
   return {
     id: crypto.randomUUID(),
@@ -277,7 +367,6 @@ export function createTimelineEvent(options: {
     title: "",
     titleTranslations: {},
     when: "",
-    place: "",
     placeId: null,
     description: "",
     participants: [],
@@ -303,8 +392,6 @@ export function createCharacter(
     tags: [],
     quotes: [],
     story: "",
-    relations: [],
-    groupIds: [],
     favorite: false,
     deletedAt: null,
     createdAt: timestamp,
@@ -365,6 +452,10 @@ export function glossaryTermDisplayName(
   return term.nameTranslations[locale] || term.name;
 }
 
+export function raceDisplayName(race: Race, locale: string): string {
+  return race.nameTranslations[locale] || race.name;
+}
+
 export function eventDisplayTitle(event: TimelineEvent, locale: string): string {
   return event.titleTranslations[locale] || event.title;
 }
@@ -376,6 +467,101 @@ export function selectDisplayValue(config: FieldConfig, rawValue: string): strin
     .filter((option): option is FieldOption => option !== undefined)
     .map((option) => option.label)
     .join(" · ");
+}
+
+// 엔티티 종류별 표시 이름 — id가 없거나 삭제된 대상이면 null. 참조 표시·백링크의 단일 진입점.
+export function entityDisplayName(
+  kind: EntityKind,
+  worldview: Worldview,
+  characters: Character[],
+  id: string,
+  locale: string,
+): string | null {
+  switch (kind) {
+    case "character": {
+      const character = characters.find(
+        (existing) => existing.id === id && existing.deletedAt === null,
+      );
+      return character ? characterDisplayName(character, locale) : null;
+    }
+    case "group": {
+      const group = worldview.groups.find((existing) => existing.id === id);
+      return group ? groupDisplayName(group, locale) : null;
+    }
+    case "place": {
+      const place = worldview.places.find((existing) => existing.id === id);
+      return place ? placeDisplayName(place, locale) : null;
+    }
+    case "race": {
+      const race = worldview.races.find((existing) => existing.id === id);
+      return race ? raceDisplayName(race, locale) : null;
+    }
+    case "glossary": {
+      const term = worldview.glossary.find((existing) => existing.id === id);
+      return term ? glossaryTermDisplayName(term, locale) : null;
+    }
+    case "chapter": {
+      const chapter = worldview.chapters.find((existing) => existing.id === id);
+      return chapter ? chapterDisplayName(chapter, locale) : null;
+    }
+    case "event": {
+      const event = worldview.events.find((existing) => existing.id === id);
+      return event ? eventDisplayTitle(event, locale) : null;
+    }
+  }
+}
+
+// 참조 필드 후보 목록 — 해당 종류의 활성 인스턴스를 표시 이름순으로. 캐릭터는 휴지통 제외.
+export function listEntities(
+  kind: EntityKind,
+  worldview: Worldview,
+  characters: Character[],
+  locale: string,
+): { id: string; name: string }[] {
+  const raw: { id: string; name: string }[] = (() => {
+    switch (kind) {
+      case "character":
+        return characters
+          .filter((character) => character.deletedAt === null)
+          .map((character) => ({
+            id: character.id,
+            name: characterDisplayName(character, locale),
+          }));
+      case "group":
+        return worldview.groups.map((group) => ({
+          id: group.id,
+          name: groupDisplayName(group, locale),
+        }));
+      case "place":
+        return worldview.places.map((place) => ({
+          id: place.id,
+          name: placeDisplayName(place, locale),
+        }));
+      case "race":
+        return worldview.races.map((race) => ({
+          id: race.id,
+          name: raceDisplayName(race, locale),
+        }));
+      case "glossary":
+        return worldview.glossary.map((term) => ({
+          id: term.id,
+          name: glossaryTermDisplayName(term, locale),
+        }));
+      case "chapter":
+        return worldview.chapters.map((chapter) => ({
+          id: chapter.id,
+          name: chapterDisplayName(chapter, locale),
+        }));
+      case "event":
+        return worldview.events.map((event) => ({
+          id: event.id,
+          name: eventDisplayTitle(event, locale),
+        }));
+    }
+  })();
+  return raw.sort((first, second) =>
+    (first.name || "-").localeCompare(second.name || "-", locale),
+  );
 }
 
 export function fieldDisplayValue(

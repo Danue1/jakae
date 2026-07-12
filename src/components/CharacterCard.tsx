@@ -1,8 +1,8 @@
 "use client";
 
-import { Star } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -13,19 +13,31 @@ import {
 } from "@/components/ui/context-menu";
 import type { Character, Worldview } from "../core/model";
 import { characterCaptionDetail, characterDisplayName } from "../core/model";
+import type { ListView } from "@/react/useListView";
 import { useLocale, useTranslations } from "next-intl";
 import { characterHref } from "../react/links";
 import { dispatchCommand, duplicateCharacter } from "../store/worldviewStore";
 import { Avatar } from "./Avatar";
+import {
+  EntityCardBody,
+  EntityRowBody,
+  Tag,
+  entityCardClass,
+  entityCardLinkClass,
+  entityRowClass,
+  entityRowLinkClass,
+} from "./EntityList";
 
 export function CharacterCard({
   character,
   worldview,
+  view,
   inTrash,
   onRequestDeleteForever,
 }: {
   character: Character;
   worldview: Worldview;
+  view: ListView;
   inTrash: boolean;
   onRequestDeleteForever: (character: Character) => void;
 }) {
@@ -42,60 +54,72 @@ export function CharacterCard({
       router.push(characterHref(locale, worldview.id, copiedCharacterId));
   };
 
-  const cardBody = (
+  const name = characterDisplayName(character, locale) || "-";
+  const subtitle = characterCaptionDetail(worldview, character, locale);
+  const favorite = !inTrash && character.favorite;
+
+  const trashActions = (
     <>
-      <Avatar character={character} />
-      {character.favorite && !inTrash && (
-        <Star
-          size={17}
-          aria-hidden="true"
-          fill="currentColor"
-          className="absolute right-2.5 top-2.5 text-star"
-        />
-      )}
-      <div className="mt-2 truncate text-sm font-semibold">
-        {characterDisplayName(character, locale) || "-"}
-      </div>
-      <div className="truncate text-xs text-muted">
-        {characterCaptionDetail(worldview, character, locale)}
-      </div>
+      <Button
+        variant="subtle"
+        size="sm"
+        onClick={() =>
+          dispatchCommand({
+            type: "restore-from-trash",
+            characterId: character.id,
+          })
+        }
+      >
+        {t("world.restore")}
+      </Button>
+      <Button
+        variant="danger"
+        size="sm"
+        onClick={() => onRequestDeleteForever(character)}
+      >
+        {t("world.deleteForever")}
+      </Button>
     </>
   );
+  const tagMeta =
+    !inTrash && character.tags.length > 0
+      ? character.tags.slice(0, 3).map((tag) => <Tag key={tag}>{tag}</Tag>)
+      : null;
+  const meta: ReactNode = inTrash ? trashActions : tagMeta;
+
+  const body =
+    view === "gallery" ? (
+      <EntityCardBody
+        thumb={<Avatar character={character} fill className="rounded-none" />}
+        name={name}
+        favorite={favorite}
+        subtitle={subtitle}
+        meta={meta}
+      />
+    ) : (
+      <EntityRowBody
+        thumb={<Avatar character={character} className="size-7 shrink-0" />}
+        name={name}
+        favorite={favorite}
+        subtitle={subtitle}
+        meta={meta}
+        chevron={!inTrash}
+      />
+    );
+  const staticClass = view === "gallery" ? entityCardClass : entityRowClass;
+  const linkClass = view === "gallery" ? entityCardLinkClass : entityRowLinkClass;
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         {inTrash ? (
-          <div className="relative rounded-xl p-1.5 text-center">
-            {cardBody}
-            <div className="mt-1 flex justify-center gap-1">
-              <Button
-                variant="subtle"
-                size="sm"
-                onClick={() =>
-                  dispatchCommand({
-                    type: "restore-from-trash",
-                    characterId: character.id,
-                  })
-                }
-              >
-                {t("world.restore")}
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => onRequestDeleteForever(character)}
-              >
-                {t("world.deleteForever")}
-              </Button>
-            </div>
-          </div>
+          <div className={staticClass}>{body}</div>
         ) : (
           <Link
             href={characterHref(locale, worldview.id, character.id)}
-            className="relative block rounded-xl p-1.5 text-center outline-none hover:bg-hover focus-visible:bg-hover"
+            className={linkClass}
           >
-            {cardBody}
+            {body}
           </Link>
         )}
       </ContextMenuTrigger>

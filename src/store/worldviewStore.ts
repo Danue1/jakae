@@ -113,8 +113,6 @@ export async function duplicateCharacter(
     personalityTags: [...original.personalityTags],
     tags: [...original.tags],
     story: original.story,
-    relations: original.relations.map((relation) => ({ ...relation })),
-    groupIds: [...original.groupIds],
     favorite: original.favorite,
   };
   // 이미지 블롭을 각각 복제하고 새 항목 id를 부여한다. 대표 지정은 옛 항목→새 항목으로 옮긴다.

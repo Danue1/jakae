@@ -17,7 +17,7 @@ import { LocaleTabs } from "@/components/LocaleTabs";
 import { MissingWorldview } from "@/components/MissingWorldview";
 import { PaletteEditor } from "@/components/PaletteEditor";
 import { QuoteEditor } from "@/components/QuoteEditor";
-import { RelationEditor } from "@/components/RelationEditor";
+import { References } from "@/components/References";
 import { RelationGraph } from "@/components/RelationGraph";
 import { SavedIndicator } from "@/components/SavedIndicator";
 import { WorldShell } from "@/components/WorldShell";
@@ -504,7 +504,12 @@ export function CharacterPageClient() {
               character={character}
               characters={characters}
             />
-            <RelationEditor character={character} characters={characters} />
+            <References
+              worldview={worldview}
+              characters={characters}
+              kind="character"
+              id={character.id}
+            />
           </section>
 
           <section>
@@ -513,38 +518,6 @@ export function CharacterPageClient() {
             </SectionCaption>
             <CharacterTimeline worldview={worldview} character={character} />
           </section>
-
-          {worldview.groups.length > 0 && (
-            <section>
-              <SectionCaption>{t("character.groups")}</SectionCaption>
-              <div className="flex flex-wrap gap-1.5">
-                {worldview.groups.map((group) => {
-                  const assigned = character.groupIds.includes(group.id);
-                  return (
-                    <button
-                      key={group.id}
-                      className={cn(
-                        "rounded-full px-3.5 py-1.5 text-sm",
-                        assigned
-                          ? "bg-accent-soft font-semibold text-accent"
-                          : "bg-hover text-muted hover:text-ink",
-                      )}
-                      onClick={() =>
-                        dispatchCommand({
-                          type: "set-group-membership",
-                          characterId: character.id,
-                          groupId: group.id,
-                          assigned: !assigned,
-                        })
-                      }
-                    >
-                      {group.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          )}
         </div>
       </div>
     </div>

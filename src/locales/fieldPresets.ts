@@ -45,6 +45,48 @@ export function fieldDefinitionFromPreset(preset: FieldPreset): FieldDefinition 
   };
 }
 
+// 새 세계관·샘플의 기본 캐릭터 필드(스칼라) — 종족·소속 등 관계는 필드가 아니라
+// worldview.references(독립 참조 컬렉션)로 다룬다. 순서가 곧 카드 캡션(앞 두 필드).
+interface DefaultFieldSeed {
+  label: string;
+  type: FieldType;
+  optionLabels?: string[];
+  unit?: string;
+}
+
+const DEFAULT_FIELDS: Record<Locale, DefaultFieldSeed[]> = {
+  ko: [
+    { label: "나이", type: "number", unit: "세" },
+    { label: "성별", type: "text" },
+    { label: "신장", type: "text" },
+  ],
+  en: [
+    { label: "Age", type: "number", unit: "yrs" },
+    { label: "Gender", type: "text" },
+    { label: "Height", type: "text" },
+  ],
+  ja: [
+    { label: "年齢", type: "number", unit: "歳" },
+    { label: "性別", type: "text" },
+    { label: "身長", type: "text" },
+  ],
+};
+
+export function defaultCharacterFields(locale: Locale): FieldDefinition[] {
+  return (DEFAULT_FIELDS[locale] ?? DEFAULT_FIELDS.ko).map((seed) => {
+    const config = defaultFieldConfig();
+    config.type = seed.type;
+    if (seed.optionLabels) config.options = seed.optionLabels.map(createFieldOption);
+    if (seed.unit) config.unit = seed.unit;
+    return {
+      id: crypto.randomUUID(),
+      label: seed.label,
+      localized: false,
+      config,
+    };
+  });
+}
+
 const MBTI = [
   "INTJ", "INTP", "ENTJ", "ENTP",
   "INFJ", "INFP", "ENFJ", "ENFP",
@@ -62,11 +104,9 @@ const ko: FieldPreset[] = [
   { key: "mbti", category: "basic", label: "MBTI", type: "select", optionLabels: MBTI },
   { key: "height", category: "body", label: "키", type: "number", unit: "cm" },
   { key: "weight", category: "body", label: "몸무게", type: "number", unit: "kg" },
-  { key: "species", category: "body", label: "종족", type: "select", optionLabels: ["인간", "엘프", "수인", "기계"] },
   { key: "tagline", category: "personality", label: "한 줄 소개", type: "text", maxLength: 40 },
   { key: "personality", category: "personality", label: "성격", type: "text" },
   { key: "job", category: "relation", label: "직업", type: "text" },
-  { key: "affiliation", category: "relation", label: "소속", type: "text" },
 ];
 
 const en: FieldPreset[] = [
@@ -77,11 +117,9 @@ const en: FieldPreset[] = [
   { key: "mbti", category: "basic", label: "MBTI", type: "select", optionLabels: MBTI },
   { key: "height", category: "body", label: "Height", type: "number", unit: "cm" },
   { key: "weight", category: "body", label: "Weight", type: "number", unit: "kg" },
-  { key: "species", category: "body", label: "Species", type: "select", optionLabels: ["Human", "Elf", "Beastfolk", "Machine"] },
   { key: "tagline", category: "personality", label: "Tagline", type: "text", maxLength: 40 },
   { key: "personality", category: "personality", label: "Personality", type: "text" },
   { key: "job", category: "relation", label: "Occupation", type: "text" },
-  { key: "affiliation", category: "relation", label: "Affiliation", type: "text" },
 ];
 
 const ja: FieldPreset[] = [
@@ -92,11 +130,9 @@ const ja: FieldPreset[] = [
   { key: "mbti", category: "basic", label: "MBTI", type: "select", optionLabels: MBTI },
   { key: "height", category: "body", label: "身長", type: "number", unit: "cm" },
   { key: "weight", category: "body", label: "体重", type: "number", unit: "kg" },
-  { key: "species", category: "body", label: "種族", type: "select", optionLabels: ["人間", "エルフ", "獣人", "機械"] },
   { key: "tagline", category: "personality", label: "ひとこと紹介", type: "text", maxLength: 40 },
   { key: "personality", category: "personality", label: "性格", type: "text" },
   { key: "job", category: "relation", label: "職業", type: "text" },
-  { key: "affiliation", category: "relation", label: "所属", type: "text" },
 ];
 
 const PRESETS: Record<Locale, FieldPreset[]> = { ko, en, ja };

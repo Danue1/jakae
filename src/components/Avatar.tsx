@@ -31,9 +31,12 @@ function tintPairForIdentifier(identifier: string): [string, string] {
 export function Avatar({
   character,
   className,
+  fill = false,
 }: {
   character: Character;
   className?: string;
+  // 가로 카드의 썸네일 열처럼 부모 크기에 꽉 채워야 할 때 정사각 대신 size-full로 전환.
+  fill?: boolean;
 }) {
   const imageUrl = useImageUrl(characterCoverImage(character)?.blobId ?? null);
   const [autoTint, autoInk] = tintPairForIdentifier(character.id);
@@ -44,7 +47,8 @@ export function Avatar({
   return (
     <div
       className={cn(
-        "flex aspect-square items-center justify-center overflow-hidden rounded-card",
+        "flex items-center justify-center overflow-hidden",
+        fill ? "size-full" : "aspect-square rounded-card",
         className,
       )}
       style={{ background: backgroundColor }}

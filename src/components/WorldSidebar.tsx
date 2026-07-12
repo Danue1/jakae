@@ -6,6 +6,7 @@ import {
   ChevronRight,
   CircleDot,
   Clock,
+  Dna,
   Library,
   MapPin,
   Search,
@@ -24,12 +25,15 @@ import {
   glossaryTermDisplayName,
   groupDisplayName,
   placeDisplayName,
+  raceDisplayName,
   worldviewDisplayName,
 } from "@/core/model";
 import {
   selectActiveCharacters,
   selectChildPlaces,
+  selectChildRaces,
   selectRootPlaces,
+  selectRootRaces,
 } from "@/core/selectors";
 import {
   chapterHref,
@@ -43,6 +47,8 @@ import {
   placeHref,
   placeListHref,
   preferencesHref,
+  raceHref,
+  raceListHref,
   settingsHref,
   timelineHref,
   worldHref,
@@ -55,6 +61,7 @@ export type WorldSection =
   | "characters"
   | "organizations"
   | "places"
+  | "races"
   | "glossary"
   | "timeline"
   | "settings";
@@ -64,6 +71,7 @@ const EXPANDABLE: WorldSection[] = [
   "characters",
   "organizations",
   "places",
+  "races",
   "glossary",
   "timeline",
 ];
@@ -94,6 +102,7 @@ export function WorldSidebar({
     searchParams.get("ch") ??
     searchParams.get("o") ??
     searchParams.get("p") ??
+    searchParams.get("r") ??
     searchParams.get("g") ??
     searchParams.get("c");
 
@@ -211,6 +220,33 @@ export function WorldSidebar({
     ));
   };
 
+  const renderRaceLeaves = (parentId: string | null, depth: number) => {
+    const races =
+      parentId === null
+        ? selectRootRaces(worldview)
+        : selectChildRaces(worldview, parentId);
+    return races.map((race) => (
+      <div key={race.id}>
+        <Link
+          href={raceHref(locale, worldviewId, race.id)}
+          className={leafClass(activeEntityId === race.id)}
+          style={depth > 0 ? { paddingLeft: `${2.25 + depth}rem` } : undefined}
+          onClick={onNavigate}
+        >
+          <span
+            className={cn(
+              "size-1.5 shrink-0 rounded-[2px]",
+              activeEntityId === race.id ? "bg-accent" : "bg-line",
+            )}
+            aria-hidden="true"
+          />
+          <span className="truncate">{raceDisplayName(race, locale) || "-"}</span>
+        </Link>
+        {renderRaceLeaves(race.id, depth + 1)}
+      </div>
+    ));
+  };
+
   const sortedCharacters = [...selectActiveCharacters(characters)].sort(
     (first, second) =>
       characterDisplayName(first, locale).localeCompare(
@@ -286,6 +322,14 @@ export function WorldSidebar({
           listHref={placeListHref(locale, worldviewId)}
         >
           {renderPlaceLeaves(null, 0)}
+        </Category>
+        <Category
+          section="races"
+          icon={Dna}
+          label={t("nav.races")}
+          listHref={raceListHref(locale, worldviewId)}
+        >
+          {renderRaceLeaves(null, 0)}
         </Category>
         <Category
           section="glossary"

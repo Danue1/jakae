@@ -1,10 +1,20 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { BookText, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LocaleTabs } from "@/components/LocaleTabs";
+import {
+  EntityCard,
+  EntityRow,
+  IconCardThumb,
+  IconRowThumb,
+  galleryGridClass,
+  tableClass,
+} from "@/components/EntityList";
+import { ListHeader } from "@/components/ListHeader";
+import { References } from "@/components/References";
 import { MissingWorldview } from "@/components/MissingWorldview";
 import { SavedIndicator } from "@/components/SavedIndicator";
 import { WorldShell } from "@/components/WorldShell";
@@ -28,9 +38,11 @@ import {
 import { LOCALES, type Locale } from "@/locales";
 import { glossaryHref, glossaryListHref } from "@/react/links";
 import { useLocale, useTranslations } from "next-intl";
+import { useListView } from "@/react/useListView";
 import { useOpenWorldview } from "@/react/useOpenWorldview";
 import { useWorldviewStore } from "@/react/useWorldviewStore";
 import { dispatchCommand } from "@/store/worldviewStore";
+import { cn } from "@/lib/utils";
 
 function SectionCaption({ children }: { children: string }) {
   return (
@@ -50,6 +62,8 @@ export function GlossaryPageClient() {
 
   const loadStatus = useOpenWorldview(worldviewId);
   const worldview = useWorldviewStore((state) => state.worldview);
+  const characters = useWorldviewStore((state) => state.characters);
+  const { view, setView } = useListView();
   const [nameLocale, setNameLocale] = useState<Locale>(locale);
   const [pendingDelete, setPendingDelete] = useState<GlossaryTerm | null>(null);
 
@@ -145,6 +159,16 @@ export function GlossaryPageClient() {
             />
           </section>
 
+          <section className="mt-6">
+            <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
+            <References
+              worldview={worldview}
+              characters={characters}
+              kind="glossary"
+              id={term.id}
+            />
+          </section>
+
           <section className="mt-8">
             <Button
               variant="danger"
@@ -191,41 +215,50 @@ export function GlossaryPageClient() {
         </div>
       ) : (
         <div className="mx-auto max-w-page px-4 pb-28 pt-5 sm:px-6">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold tracking-tight">
-              {t("glossary.tab")}
-            </h1>
-            <span className="ml-auto hidden lg:block">
-              <SavedIndicator />
-            </span>
-            <Button size="sm" onClick={addTerm}>
-              <Plus size={15} aria-hidden="true" />
-              {t("glossary.add")}
-            </Button>
-          </div>
+          <ListHeader
+            icon={BookText}
+            title={t("glossary.tab")}
+            view={view}
+            onViewChange={setView}
+            trailing={
+              <Button size="sm" onClick={addTerm}>
+                <Plus size={15} aria-hidden="true" />
+                {t("glossary.add")}
+              </Button>
+            }
+          />
 
           {worldview.glossary.length === 0 ? (
             <p className="py-20 text-center text-sm text-muted">
               {t("glossary.listEmpty")}
             </p>
           ) : (
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {worldview.glossary.map((entry) => (
-                <Link
-                  key={entry.id}
-                  href={glossaryHref(locale, worldview.id, entry.id)}
-                  className="rounded-2xl border border-line p-4 hover:border-accent"
-                >
-                  <div className="truncate font-bold">
-                    {glossaryTermDisplayName(entry, locale) || "-"}
-                  </div>
-                  {entry.description && (
-                    <p className="mt-1 line-clamp-2 text-xs text-muted">
-                      {entry.description}
-                    </p>
-                  )}
-                </Link>
-              ))}
+            <div
+              className={cn(
+                "mt-4",
+                view === "gallery" ? galleryGridClass : tableClass,
+              )}
+            >
+              {worldview.glossary.map((entry) => {
+                const props = {
+                  href: glossaryHref(locale, worldview.id, entry.id),
+                  name: glossaryTermDisplayName(entry, locale) || "-",
+                  subtitle: entry.description,
+                };
+                return view === "gallery" ? (
+                  <EntityCard
+                    key={entry.id}
+                    {...props}
+                    thumb={<IconCardThumb icon={BookText} />}
+                  />
+                ) : (
+                  <EntityRow
+                    key={entry.id}
+                    {...props}
+                    thumb={<IconRowThumb icon={BookText} />}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

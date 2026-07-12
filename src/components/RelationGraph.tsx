@@ -20,8 +20,9 @@ interface Neighbor {
   inbound: string | null;
 }
 
-// 이 캐릭터와 직접 연결된 이웃 — 나가는 관계(A→B)와 들어오는 역관계(B→A)를 한 이웃으로 합친다.
+// 이 캐릭터와 직접 연결된 이웃 — 캐릭터↔캐릭터 참조에서 나가는(A→B)·들어오는(B→A)을 한 이웃으로 합친다.
 function collectNeighbors(
+  worldview: Worldview,
   character: Character,
   characters: Character[],
 ): Neighbor[] {
@@ -34,20 +35,20 @@ function collectNeighbors(
   const outbound = new Map<string, string>();
   const inbound = new Map<string, string>();
 
-  for (const relation of character.relations) {
-    if (!activeById.has(relation.targetCharacterId)) continue;
-    if (!order.includes(relation.targetCharacterId))
-      order.push(relation.targetCharacterId);
-    outbound.set(relation.targetCharacterId, relation.label);
-  }
-  for (const other of activeById.values()) {
-    if (other.id === character.id) continue;
-    const back = other.relations.find(
-      (relation) => relation.targetCharacterId === character.id,
-    );
-    if (!back) continue;
-    if (!order.includes(other.id)) order.push(other.id);
-    inbound.set(other.id, back.label);
+  for (const reference of worldview.references) {
+    if (reference.sourceKind !== "character" || reference.targetKind !== "character")
+      continue;
+    if (reference.sourceId === character.id) {
+      const otherId = reference.targetId;
+      if (!activeById.has(otherId)) continue;
+      if (!order.includes(otherId)) order.push(otherId);
+      outbound.set(otherId, reference.label);
+    } else if (reference.targetId === character.id) {
+      const otherId = reference.sourceId;
+      if (!activeById.has(otherId)) continue;
+      if (!order.includes(otherId)) order.push(otherId);
+      inbound.set(otherId, reference.label);
+    }
   }
 
   return order
@@ -276,7 +277,7 @@ export function RelationGraph({
     return () => svg.removeEventListener("wheel", onWheel);
   }, []);
 
-  const neighbors = collectNeighbors(character, characters);
+  const neighbors = collectNeighbors(worldview, character, characters);
   if (neighbors.length === 0) return null;
 
   const positions = neighbors.map((_, index) =>

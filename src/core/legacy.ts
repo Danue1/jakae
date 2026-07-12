@@ -13,7 +13,8 @@ import {
   type Group,
   type PaletteColor,
   type Place,
-  type Relation,
+  type Race,
+  type Reference,
   type TimelineEvent,
   type Worldview,
 } from "./model";
@@ -62,11 +63,14 @@ export interface LegacyWorldviewRecord
     | "palette"
     | "groups"
     | "places"
+    | "races"
     | "glossary"
     | "chapters"
     | "events"
+    | "references"
   > {
   primaryLocale?: string;
+  references?: Reference[];
   nameTranslations?: Record<string, string>;
   synopsis?: string;
   synopsisTranslations?: Record<string, string>;
@@ -81,6 +85,7 @@ export interface LegacyWorldviewRecord
     description?: string;
   })[];
   places?: Place[];
+  races?: Race[];
   glossary?: GlossaryTerm[];
   chapters?: Chapter[];
   events?: (Omit<TimelineEvent, "placeId"> & { placeId?: string | null })[];
@@ -103,6 +108,7 @@ export interface LegacyCharacterRecord
     | "coverImageId"
     | "quotes"
     | "tags"
+    | "raceId"
   > {
   tags?: string[];
   nameTranslations?: Record<string, string>;
@@ -113,11 +119,8 @@ export interface LegacyCharacterRecord
   imageId?: string | null;
   images?: CharacterImage[];
   coverImageId?: string | null;
+  raceId?: string | null;
   quotes?: CharacterQuote[];
-  relations: (Relation & {
-    connector?: string;
-    particle?: string;
-  })[];
 }
 
 export function normalizeWorldviewRecord(
@@ -146,6 +149,23 @@ export function normalizeWorldviewRecord(
       description: group.description ?? "",
     })),
     places: record.places ?? [],
+    races: (record.races ?? []).map((race) => ({
+      id: race.id,
+      name: race.name,
+      nameTranslations: race.nameTranslations ?? {},
+      symbolColor: race.symbolColor ?? null,
+      parentId: race.parentId ?? null,
+      lifespan: race.lifespan ?? "",
+      height: race.height ?? "",
+      origin: race.origin ?? "",
+      language: race.language ?? "",
+      traits: race.traits ?? [],
+      relations: (race.relations ?? []).map((relation) => ({
+        targetRaceId: relation.targetRaceId,
+        label: relation.label,
+      })),
+      description: race.description ?? "",
+    })),
     glossary: record.glossary ?? [],
     chapters: record.chapters ?? [],
     events: (record.events ?? []).map((event) => ({
@@ -155,7 +175,6 @@ export function normalizeWorldviewRecord(
       title: event.title,
       titleTranslations: event.titleTranslations ?? {},
       when: event.when ?? "",
-      place: event.place ?? "",
       placeId: event.placeId ?? null,
       description: event.description ?? "",
       participants: (event.participants ?? []).map((participant) => ({
@@ -163,6 +182,7 @@ export function normalizeWorldviewRecord(
         role: participant.role ?? "",
       })),
     })),
+    references: record.references ?? [],
     createdAt: record.createdAt,
     modifiedAt: record.modifiedAt,
   };
@@ -193,11 +213,6 @@ export function normalizeCharacterRecord(
     tags: record.tags ?? [],
     quotes: record.quotes ?? [],
     story: record.story,
-    relations: record.relations.map((relation) => ({
-      targetCharacterId: relation.targetCharacterId,
-      label: relation.label,
-    })),
-    groupIds: record.groupIds,
     favorite: record.favorite,
     deletedAt: record.deletedAt,
     createdAt: record.createdAt,

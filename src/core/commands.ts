@@ -10,7 +10,10 @@ import type {
   Group,
   PaletteColor,
   Place,
-  Relation,
+  Race,
+  RaceAttributeKey,
+  RaceRelation,
+  Reference,
   TimelineEvent,
   Worldview,
 } from "./model";
@@ -20,9 +23,10 @@ export interface WorldviewState {
   characters: Character[];
 }
 
-export interface InboundRelation {
-  characterId: string;
-  relation: Relation;
+// 종족 삭제 시 함께 끊기던 다른 종족의 관계 — 역커맨드가 원래 자리로 되돌리기 위해 보관한다.
+export interface InboundRaceRelation {
+  raceId: string;
+  relation: RaceRelation;
   relationIndex: number;
 }
 
@@ -58,7 +62,6 @@ export type WorldviewCommand =
       type: "restore-group";
       group: Group;
       groupIndex: number;
-      memberCharacterIds: string[];
     }
   | { type: "rename-group"; groupId: string; name: string; locale: string }
   | { type: "set-group-description"; groupId: string; description: string }
@@ -80,6 +83,40 @@ export type WorldviewCommand =
   | { type: "restore-glossary-term"; term: GlossaryTerm; termIndex: number }
   | { type: "rename-glossary-term"; termId: string; name: string; locale: string }
   | { type: "set-glossary-term-description"; termId: string; description: string }
+  | { type: "add-race"; race: Race }
+  | { type: "remove-race"; raceId: string }
+  | {
+      type: "restore-race";
+      race: Race;
+      raceIndex: number;
+      childRaceIds: string[];
+      inboundRelations: InboundRaceRelation[];
+    }
+  | { type: "rename-race"; raceId: string; name: string; locale: string }
+  | { type: "set-race-symbol-color"; raceId: string; symbolColor: string | null }
+  | { type: "set-race-parent"; raceId: string; parentId: string | null }
+  | {
+      type: "set-race-attribute";
+      raceId: string;
+      key: RaceAttributeKey;
+      value: string;
+    }
+  | { type: "set-race-traits"; raceId: string; traits: string[] }
+  | { type: "set-race-description"; raceId: string; description: string }
+  | { type: "add-race-relation"; raceId: string; relation: RaceRelation }
+  | { type: "remove-race-relation"; raceId: string; relationIndex: number }
+  | {
+      type: "restore-race-relation";
+      raceId: string;
+      relation: RaceRelation;
+      relationIndex: number;
+    }
+  | {
+      type: "set-race-relation";
+      raceId: string;
+      relationIndex: number;
+      relation: RaceRelation;
+    }
   | { type: "add-field-definition"; fieldDefinition: FieldDefinition }
   | { type: "rename-field-definition"; fieldDefinitionId: string; label: string }
   | {
@@ -121,7 +158,6 @@ export type WorldviewCommand =
   | { type: "restore-event"; event: TimelineEvent; eventIndex: number }
   | { type: "set-event-title"; eventId: string; title: string; locale: string }
   | { type: "set-event-when"; eventId: string; when: string }
-  | { type: "set-event-place"; eventId: string; place: string }
   | { type: "set-event-place-id"; eventId: string; placeId: string | null }
   | { type: "set-event-description"; eventId: string; description: string }
   | { type: "set-event-chapter"; eventId: string; chapterId: string | null }
@@ -150,7 +186,6 @@ export type WorldviewCommand =
   | {
       type: "restore-deleted-character";
       character: Character;
-      inboundRelations: InboundRelation[];
       removedParticipations: RemovedParticipation[];
       removedPersonalEvents: RemovedPersonalEvent[];
     }
@@ -209,27 +244,16 @@ export type WorldviewCommand =
       colorIndex: number;
       color: PaletteColor;
     }
-  | { type: "set-relation"; characterId: string; relationIndex: number; relation: Relation }
   | {
       type: "set-character-background-color";
       characterId: string;
       backgroundColor: string | null;
     }
   | { type: "set-favorite"; characterId: string; favorite: boolean }
-  | {
-      type: "set-group-membership";
-      characterId: string;
-      groupId: string;
-      assigned: boolean;
-    }
-  | { type: "add-relation"; characterId: string; relation: Relation }
-  | { type: "remove-relation"; characterId: string; relationIndex: number }
-  | {
-      type: "restore-relation";
-      characterId: string;
-      relation: Relation;
-      relationIndex: number;
-    }
+  | { type: "add-reference"; reference: Reference }
+  | { type: "remove-reference"; referenceId: string }
+  | { type: "restore-reference"; reference: Reference; referenceIndex: number }
+  | { type: "set-reference-label"; referenceId: string; label: string }
   | { type: "move-to-trash"; characterId: string }
   | { type: "restore-from-trash"; characterId: string };
 
@@ -385,6 +409,29 @@ function patchGlossaryTerm(
     {
       glossary: state.worldview.glossary.map((existing) =>
         existing.id === termId ? { ...existing, ...patch } : existing,
+      ),
+    },
+    timestamp,
+  );
+}
+
+function requireRace(state: WorldviewState, raceId: string): Race {
+  const race = state.worldview.races.find((existing) => existing.id === raceId);
+  if (!race) throw new Error(`존재하지 않는 종족: ${raceId}`);
+  return race;
+}
+
+function patchRace(
+  state: WorldviewState,
+  raceId: string,
+  patch: Partial<Race>,
+  timestamp: number,
+): WorldviewState {
+  return patchWorldview(
+    state,
+    {
+      races: state.worldview.races.map((existing) =>
+        existing.id === raceId ? { ...existing, ...patch } : existing,
       ),
     },
     timestamp,
@@ -636,10 +683,9 @@ export function applyCommand(
       );
       const group = state.worldview.groups[groupIndex];
       if (!group) throw new Error(`존재하지 않는 그룹: ${command.groupId}`);
-      const memberCharacterIds = state.characters
-        .filter((character) => character.groupIds.includes(command.groupId))
-        .map((character) => character.id);
-      let nextState = patchWorldview(
+      // 소속(조직) 참조는 캐릭터의 reference 필드 값이다. 조직을 지워도 그 값은 건드리지 않는다
+      // (미해결 참조는 표시에서 무시되고, 되돌리기로 조직이 살아나면 자동 재연결된다).
+      const nextState = patchWorldview(
         state,
         {
           groups: state.worldview.groups.filter(
@@ -648,47 +694,25 @@ export function applyCommand(
         },
         timestamp,
       );
-      for (const characterId of memberCharacterIds) {
-        const character = requireCharacter(nextState, characterId);
-        nextState = patchCharacter(
-          nextState,
-          characterId,
-          {
-            groupIds: character.groupIds.filter(
-              (groupId) => groupId !== command.groupId,
-            ),
-          },
-          timestamp,
-        );
-      }
       return {
         state: nextState,
-        inverse: { type: "restore-group", group, groupIndex, memberCharacterIds },
-        dirty: { worldview: true, characterIds: memberCharacterIds },
+        inverse: { type: "restore-group", group, groupIndex },
+        dirty: { worldview: true },
       };
     }
 
     case "restore-group": {
-      let nextState = patchWorldview(
+      const nextState = patchWorldview(
         state,
         {
           groups: insertAt(state.worldview.groups, command.groupIndex, command.group),
         },
         timestamp,
       );
-      for (const characterId of command.memberCharacterIds) {
-        const character = requireCharacter(nextState, characterId);
-        nextState = patchCharacter(
-          nextState,
-          characterId,
-          { groupIds: [...character.groupIds, command.group.id] },
-          timestamp,
-        );
-      }
       return {
         state: nextState,
         inverse: { type: "remove-group", groupId: command.group.id },
-        dirty: { worldview: true, characterIds: command.memberCharacterIds },
+        dirty: { worldview: true },
       };
     }
 
@@ -1044,6 +1068,336 @@ export function applyCommand(
           type: "set-glossary-term-description",
           termId: command.termId,
           description: term.description,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "add-race":
+      return {
+        state: patchWorldview(
+          state,
+          { races: [...state.worldview.races, command.race] },
+          timestamp,
+        ),
+        inverse: { type: "remove-race", raceId: command.race.id },
+        dirty: { worldview: true },
+      };
+
+    case "remove-race": {
+      const raceIndex = state.worldview.races.findIndex(
+        (race) => race.id === command.raceId,
+      );
+      const race = state.worldview.races[raceIndex];
+      if (!race) throw new Error(`존재하지 않는 종족: ${command.raceId}`);
+      // 종족을 지워도 이를 참조하던 캐릭터 필드 값은 건드리지 않는다(미해결 참조는 표시에서 무시되고,
+      // 되돌리기로 종족이 살아나면 자동 재연결된다). 아종·이를 가리키던 다른 종족의 관계만 참조를 끊는다.
+      const childRaceIds = state.worldview.races
+        .filter((existing) => existing.parentId === command.raceId)
+        .map((existing) => existing.id);
+      const inboundRelations: InboundRaceRelation[] = [];
+      for (const other of state.worldview.races) {
+        if (other.id === command.raceId) continue;
+        other.relations.forEach((relation, relationIndex) => {
+          if (relation.targetRaceId === command.raceId)
+            inboundRelations.push({ raceId: other.id, relation, relationIndex });
+        });
+      }
+      const nextState = patchWorldview(
+        state,
+        {
+          races: state.worldview.races
+            .filter((existing) => existing.id !== command.raceId)
+            .map((existing) =>
+              existing.parentId === command.raceId
+                ? { ...existing, parentId: null }
+                : {
+                    ...existing,
+                    relations: existing.relations.filter(
+                      (relation) => relation.targetRaceId !== command.raceId,
+                    ),
+                  },
+            ),
+        },
+        timestamp,
+      );
+      return {
+        state: nextState,
+        inverse: {
+          type: "restore-race",
+          race,
+          raceIndex,
+          childRaceIds,
+          inboundRelations,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "restore-race": {
+      const childRaceIds = new Set(command.childRaceIds);
+      let nextState = patchWorldview(
+        state,
+        {
+          races: insertAt(
+            state.worldview.races,
+            command.raceIndex,
+            command.race,
+          ).map((existing) =>
+            childRaceIds.has(existing.id)
+              ? { ...existing, parentId: command.race.id }
+              : existing,
+          ),
+        },
+        timestamp,
+      );
+      // 끊겼던 다른 종족의 관계를 원래 인덱스 오름차순으로 다시 끼워 넣는다.
+      const relationsByRace = new Map<string, InboundRaceRelation[]>();
+      for (const inbound of command.inboundRelations) {
+        const list = relationsByRace.get(inbound.raceId) ?? [];
+        list.push(inbound);
+        relationsByRace.set(inbound.raceId, list);
+      }
+      for (const [raceId, inbounds] of relationsByRace) {
+        const other = requireRace(nextState, raceId);
+        let relations = other.relations;
+        for (const inbound of [...inbounds].sort(
+          (first, second) => first.relationIndex - second.relationIndex,
+        )) {
+          relations = insertAt(relations, inbound.relationIndex, inbound.relation);
+        }
+        nextState = patchRace(nextState, raceId, { relations }, timestamp);
+      }
+      return {
+        state: nextState,
+        inverse: { type: "remove-race", raceId: command.race.id },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "rename-race": {
+      const race = requireRace(state, command.raceId);
+      if (command.locale !== state.worldview.primaryLocale) {
+        return {
+          state: patchRace(
+            state,
+            command.raceId,
+            {
+              nameTranslations: withLocaleValue(
+                race.nameTranslations,
+                command.locale,
+                command.name,
+              ),
+            },
+            timestamp,
+          ),
+          inverse: {
+            type: "rename-race",
+            raceId: command.raceId,
+            name: race.nameTranslations[command.locale] ?? "",
+            locale: command.locale,
+          },
+          dirty: { worldview: true },
+        };
+      }
+      return {
+        state: patchRace(state, command.raceId, { name: command.name }, timestamp),
+        inverse: {
+          type: "rename-race",
+          raceId: command.raceId,
+          name: race.name,
+          locale: command.locale,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-race-symbol-color": {
+      const race = requireRace(state, command.raceId);
+      return {
+        state: patchRace(
+          state,
+          command.raceId,
+          { symbolColor: command.symbolColor },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-race-symbol-color",
+          raceId: command.raceId,
+          symbolColor: race.symbolColor,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-race-parent": {
+      const race = requireRace(state, command.raceId);
+      // 자기 자신·후손을 부모로 지정해 순환이 생기지 않도록 막는다.
+      let cursor: string | null = command.parentId;
+      while (cursor !== null) {
+        if (cursor === command.raceId)
+          throw new Error("종족 계통에 순환을 만들 수 없습니다.");
+        cursor =
+          state.worldview.races.find((existing) => existing.id === cursor)
+            ?.parentId ?? null;
+      }
+      return {
+        state: patchRace(
+          state,
+          command.raceId,
+          { parentId: command.parentId },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-race-parent",
+          raceId: command.raceId,
+          parentId: race.parentId,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-race-attribute": {
+      const race = requireRace(state, command.raceId);
+      const patch: Partial<Race> = { [command.key]: command.value };
+      return {
+        state: patchRace(state, command.raceId, patch, timestamp),
+        inverse: {
+          type: "set-race-attribute",
+          raceId: command.raceId,
+          key: command.key,
+          value: race[command.key],
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-race-traits": {
+      const race = requireRace(state, command.raceId);
+      return {
+        state: patchRace(
+          state,
+          command.raceId,
+          { traits: command.traits },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-race-traits",
+          raceId: command.raceId,
+          traits: race.traits,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-race-description": {
+      const race = requireRace(state, command.raceId);
+      return {
+        state: patchRace(
+          state,
+          command.raceId,
+          { description: command.description },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-race-description",
+          raceId: command.raceId,
+          description: race.description,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "add-race-relation": {
+      const race = requireRace(state, command.raceId);
+      return {
+        state: patchRace(
+          state,
+          command.raceId,
+          { relations: [...race.relations, command.relation] },
+          timestamp,
+        ),
+        inverse: {
+          type: "remove-race-relation",
+          raceId: command.raceId,
+          relationIndex: race.relations.length,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "remove-race-relation": {
+      const race = requireRace(state, command.raceId);
+      const relation = race.relations[command.relationIndex];
+      if (!relation)
+        throw new Error(`존재하지 않는 종족 관계: ${command.relationIndex}`);
+      return {
+        state: patchRace(
+          state,
+          command.raceId,
+          {
+            relations: [
+              ...race.relations.slice(0, command.relationIndex),
+              ...race.relations.slice(command.relationIndex + 1),
+            ],
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "restore-race-relation",
+          raceId: command.raceId,
+          relation,
+          relationIndex: command.relationIndex,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "restore-race-relation": {
+      const race = requireRace(state, command.raceId);
+      return {
+        state: patchRace(
+          state,
+          command.raceId,
+          {
+            relations: insertAt(
+              race.relations,
+              command.relationIndex,
+              command.relation,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "remove-race-relation",
+          raceId: command.raceId,
+          relationIndex: command.relationIndex,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-race-relation": {
+      const race = requireRace(state, command.raceId);
+      const relation = race.relations[command.relationIndex];
+      if (!relation)
+        throw new Error(`존재하지 않는 종족 관계: ${command.relationIndex}`);
+      return {
+        state: patchRace(
+          state,
+          command.raceId,
+          {
+            relations: race.relations.map((existing, index) =>
+              index === command.relationIndex ? command.relation : existing,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-race-relation",
+          raceId: command.raceId,
+          relationIndex: command.relationIndex,
+          relation,
         },
         dirty: { worldview: true },
       };
@@ -1546,24 +1900,6 @@ export function applyCommand(
       };
     }
 
-    case "set-event-place": {
-      const event = requireEvent(state, command.eventId);
-      return {
-        state: patchEvent(
-          state,
-          command.eventId,
-          { place: command.place },
-          timestamp,
-        ),
-        inverse: {
-          type: "set-event-place",
-          eventId: command.eventId,
-          place: event.place,
-        },
-        dirty: { worldview: true },
-      };
-    }
-
     case "set-event-place-id": {
       const event = requireEvent(state, command.eventId);
       return {
@@ -1769,16 +2105,9 @@ export function applyCommand(
 
     case "delete-character-permanently": {
       const character = requireCharacter(state, command.characterId);
-      const inboundRelations: InboundRelation[] = [];
-      for (const other of state.characters) {
-        if (other.id === command.characterId) continue;
-        other.relations.forEach((relation, relationIndex) => {
-          if (relation.targetCharacterId === command.characterId) {
-            inboundRelations.push({ characterId: other.id, relation, relationIndex });
-          }
-        });
-      }
-      // 연표에서도 이 자캐를 지운다 — 개인 사건은 통째로, 세계관 사건에선 참여자만.
+      // 이 자캐를 오가던 참조(관계)는 건드리지 않는다 — 미해결 참조는 표시에서 무시되고,
+      // 되돌리기로 자캐가 살아나면 자동 재연결된다.
+      // 연표에서는 이 자캐를 지운다 — 개인 사건은 통째로, 세계관 사건에선 참여자만.
       const removedPersonalEvents: RemovedPersonalEvent[] = [];
       const removedParticipations: RemovedParticipation[] = [];
       state.worldview.events.forEach((event, eventIndex) => {
@@ -1831,34 +2160,16 @@ export function applyCommand(
           timestamp,
         );
       }
-      const affectedCharacterIds = [
-        ...new Set(inboundRelations.map((inbound) => inbound.characterId)),
-      ];
-      for (const characterId of affectedCharacterIds) {
-        const other = requireCharacter(nextState, characterId);
-        nextState = patchCharacter(
-          nextState,
-          characterId,
-          {
-            relations: other.relations.filter(
-              (relation) => relation.targetCharacterId !== command.characterId,
-            ),
-          },
-          timestamp,
-        );
-      }
       return {
         state: nextState,
         inverse: {
           type: "restore-deleted-character",
           character,
-          inboundRelations,
           removedParticipations,
           removedPersonalEvents,
         },
         dirty: {
           removedCharacterIds: [command.characterId],
-          characterIds: affectedCharacterIds,
           worldview: touchesEvents ? true : undefined,
         },
       };
@@ -1869,24 +2180,6 @@ export function applyCommand(
         ...state,
         characters: [...state.characters, command.character],
       };
-      const affectedCharacterIds = [
-        ...new Set(command.inboundRelations.map((inbound) => inbound.characterId)),
-      ];
-      for (const inbound of command.inboundRelations) {
-        const other = requireCharacter(nextState, inbound.characterId);
-        nextState = patchCharacter(
-          nextState,
-          inbound.characterId,
-          {
-            relations: insertAt(
-              other.relations,
-              inbound.relationIndex,
-              inbound.relation,
-            ),
-          },
-          timestamp,
-        );
-      }
       const touchesEvents =
         command.removedPersonalEvents.length > 0 ||
         command.removedParticipations.length > 0;
@@ -1924,7 +2217,7 @@ export function applyCommand(
           characterId: command.character.id,
         },
         dirty: {
-          characterIds: [command.character.id, ...affectedCharacterIds],
+          characterIds: [command.character.id],
           worldview: touchesEvents ? true : undefined,
         },
       };
@@ -2399,32 +2692,6 @@ export function applyCommand(
       };
     }
 
-    case "set-relation": {
-      const character = requireCharacter(state, command.characterId);
-      const relation = character.relations[command.relationIndex];
-      if (!relation)
-        throw new Error(`존재하지 않는 관계: ${command.relationIndex}`);
-      return {
-        state: patchCharacter(
-          state,
-          command.characterId,
-          {
-            relations: character.relations.map((existing, index) =>
-              index === command.relationIndex ? command.relation : existing,
-            ),
-          },
-          timestamp,
-        ),
-        inverse: {
-          type: "set-relation",
-          characterId: command.characterId,
-          relationIndex: command.relationIndex,
-          relation,
-        },
-        dirty: { characterIds: [command.characterId] },
-      };
-    }
-
     case "set-character-background-color": {
       const character = requireCharacter(state, command.characterId);
       return {
@@ -2466,89 +2733,88 @@ export function applyCommand(
       };
     }
 
-    case "set-group-membership": {
-      const character = requireCharacter(state, command.characterId);
-      const groupIds = command.assigned
-        ? [...new Set([...character.groupIds, command.groupId])]
-        : character.groupIds.filter((groupId) => groupId !== command.groupId);
+    case "add-reference": {
       return {
-        state: patchCharacter(state, command.characterId, { groupIds }, timestamp),
-        inverse: {
-          type: "set-group-membership",
-          characterId: command.characterId,
-          groupId: command.groupId,
-          assigned: !command.assigned,
-        },
-        dirty: { characterIds: [command.characterId] },
-      };
-    }
-
-    case "add-relation": {
-      const character = requireCharacter(state, command.characterId);
-      return {
-        state: patchCharacter(
+        state: patchWorldview(
           state,
-          command.characterId,
-          { relations: [...character.relations, command.relation] },
+          { references: [...state.worldview.references, command.reference] },
           timestamp,
         ),
         inverse: {
-          type: "remove-relation",
-          characterId: command.characterId,
-          relationIndex: character.relations.length,
+          type: "remove-reference",
+          referenceId: command.reference.id,
         },
-        dirty: { characterIds: [command.characterId] },
+        dirty: { worldview: true },
       };
     }
 
-    case "remove-relation": {
-      const character = requireCharacter(state, command.characterId);
-      const relation = character.relations[command.relationIndex];
-      if (!relation)
-        throw new Error(`존재하지 않는 관계: ${command.relationIndex}`);
+    case "remove-reference": {
+      const referenceIndex = state.worldview.references.findIndex(
+        (reference) => reference.id === command.referenceId,
+      );
+      const reference = state.worldview.references[referenceIndex];
+      if (!reference)
+        throw new Error(`존재하지 않는 참조: ${command.referenceId}`);
       return {
-        state: patchCharacter(
+        state: patchWorldview(
           state,
-          command.characterId,
           {
-            relations: [
-              ...character.relations.slice(0, command.relationIndex),
-              ...character.relations.slice(command.relationIndex + 1),
-            ],
+            references: state.worldview.references.filter(
+              (existing) => existing.id !== command.referenceId,
+            ),
           },
           timestamp,
         ),
-        inverse: {
-          type: "restore-relation",
-          characterId: command.characterId,
-          relation,
-          relationIndex: command.relationIndex,
-        },
-        dirty: { characterIds: [command.characterId] },
+        inverse: { type: "restore-reference", reference, referenceIndex },
+        dirty: { worldview: true },
       };
     }
 
-    case "restore-relation": {
-      const character = requireCharacter(state, command.characterId);
+    case "restore-reference": {
       return {
-        state: patchCharacter(
+        state: patchWorldview(
           state,
-          command.characterId,
           {
-            relations: insertAt(
-              character.relations,
-              command.relationIndex,
-              command.relation,
+            references: insertAt(
+              state.worldview.references,
+              command.referenceIndex,
+              command.reference,
             ),
           },
           timestamp,
         ),
         inverse: {
-          type: "remove-relation",
-          characterId: command.characterId,
-          relationIndex: command.relationIndex,
+          type: "remove-reference",
+          referenceId: command.reference.id,
         },
-        dirty: { characterIds: [command.characterId] },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-reference-label": {
+      const reference = state.worldview.references.find(
+        (existing) => existing.id === command.referenceId,
+      );
+      if (!reference)
+        throw new Error(`존재하지 않는 참조: ${command.referenceId}`);
+      return {
+        state: patchWorldview(
+          state,
+          {
+            references: state.worldview.references.map((existing) =>
+              existing.id === command.referenceId
+                ? { ...existing, label: command.label }
+                : existing,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-reference-label",
+          referenceId: command.referenceId,
+          label: reference.label,
+        },
+        dirty: { worldview: true },
       };
     }
 

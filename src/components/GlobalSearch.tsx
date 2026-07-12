@@ -3,6 +3,7 @@
 import {
   BookText,
   Clock,
+  Dna,
   Hexagon,
   MapPin,
   Search,
@@ -27,6 +28,7 @@ import {
   glossaryHref,
   organizationHref,
   placeHref,
+  raceHref,
 } from "@/react/links";
 import { useWorldviewStore } from "@/react/useWorldviewStore";
 
@@ -34,6 +36,7 @@ const KIND_ICON: Record<SearchResultKind, typeof User> = {
   character: User,
   group: Hexagon,
   place: MapPin,
+  race: Dna,
   glossary: BookText,
   chapter: Clock,
   event: Clock,
@@ -63,6 +66,7 @@ export function GlobalSearch({
     character: t("nav.characters"),
     group: t("nav.organizations"),
     place: t("nav.places"),
+    race: t("nav.races"),
     glossary: t("nav.glossary"),
     chapter: t("timeline.heading"),
     event: t("timeline.heading"),
@@ -76,6 +80,8 @@ export function GlobalSearch({
         return organizationHref(locale, worldviewId, id);
       case "place":
         return placeHref(locale, worldviewId, id);
+      case "race":
+        return raceHref(locale, worldviewId, id);
       case "glossary":
         return glossaryHref(locale, worldviewId, id);
       case "chapter":

@@ -1,10 +1,22 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LocaleTabs } from "@/components/LocaleTabs";
+import {
+  EntityCard,
+  EntityRowBody,
+  IconCardThumb,
+  IconRowThumb,
+  KindBadge,
+  entityRowLinkClass,
+  galleryGridClass,
+  tableClass,
+} from "@/components/EntityList";
+import { ListHeader } from "@/components/ListHeader";
+import { References } from "@/components/References";
 import { MissingWorldview } from "@/components/MissingWorldview";
 import { SavedIndicator } from "@/components/SavedIndicator";
 import { WorldShell } from "@/components/WorldShell";
@@ -41,9 +53,11 @@ import {
 import { LOCALES, type Locale } from "@/locales";
 import { eventHref, placeHref, placeListHref } from "@/react/links";
 import { useLocale, useTranslations } from "next-intl";
+import { useListView } from "@/react/useListView";
 import { useOpenWorldview } from "@/react/useOpenWorldview";
 import { useWorldviewStore } from "@/react/useWorldviewStore";
 import { dispatchCommand } from "@/store/worldviewStore";
+import { cn } from "@/lib/utils";
 
 const NO_PARENT = "__none__";
 
@@ -65,6 +79,8 @@ export function PlacePageClient() {
 
   const loadStatus = useOpenWorldview(worldviewId);
   const worldview = useWorldviewStore((state) => state.worldview);
+  const characters = useWorldviewStore((state) => state.characters);
+  const { view, setView } = useListView();
   const [nameLocale, setNameLocale] = useState<Locale>(locale);
   const [pendingDelete, setPendingDelete] = useState<Place | null>(null);
 
@@ -264,6 +280,16 @@ export function PlacePageClient() {
           </section>
         )}
 
+        <section className="mt-6">
+          <SectionCaption>{t("reference.sectionTitle")}</SectionCaption>
+          <References
+            worldview={worldview}
+            characters={characters}
+            kind="place"
+            id={place.id}
+          />
+        </section>
+
         <section className="mt-8">
           <Button
             variant="danger"
@@ -309,60 +335,75 @@ export function PlacePageClient() {
     );
   }
 
-  // ── 목록(계층 트리) ──
+  // ── 목록 ──
+  // 트리 순서(루트→자식)로 깊이와 함께 평탄화 — 갤러리는 카드 인접 배치, 표는 들여쓰기 트리에 쓴다.
+  // (행이 형제로 나열돼야 구분선 last:border-0이 맞으므로 표도 이 평탄 목록을 그대로 쓴다.)
   const rootPlaces = selectRootPlaces(worldview);
-  const renderPlace = (node: Place, depth: number) => {
-    const children = selectChildPlaces(worldview, node.id);
-    return (
-      <div key={node.id}>
-        <Link
-          href={placeHref(locale, worldview.id, node.id)}
-          className="flex items-center gap-2 border-b border-line py-2.5 text-sm hover:text-accent"
-          style={{ paddingLeft: `${depth * 20}px` }}
-        >
-          {depth > 0 && (
-            <span className="text-line" aria-hidden="true">
-              └
-            </span>
-          )}
-          <span className="flex-1 truncate font-medium">
-            {placeDisplayName(node, locale) || "-"}
-          </span>
-          {node.kind && (
-            <span className="rounded bg-hover px-2 py-0.5 text-xs text-muted">
-              {node.kind}
-            </span>
-          )}
-          <ChevronRight size={15} aria-hidden="true" className="text-muted" />
-        </Link>
-        {children.map((child) => renderPlace(child, depth + 1))}
-      </div>
-    );
+  const flattenTree = (
+    nodes: Place[],
+    depth: number,
+    into: { node: Place; depth: number }[],
+  ) => {
+    for (const node of nodes) {
+      into.push({ node, depth });
+      flattenTree(selectChildPlaces(worldview, node.id), depth + 1, into);
+    }
+    return into;
   };
+  const orderedPlaces = flattenTree(rootPlaces, 0, []);
 
   return (
     <WorldShell active="places" worldviewId={worldview.id}>
       <div className="mx-auto max-w-page px-4 pb-28 pt-5 sm:px-6">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-extrabold tracking-tight">
-            {t("place.tab")}
-          </h1>
-          <span className="ml-auto hidden lg:block">
-            <SavedIndicator />
-          </span>
-          <Button size="sm" onClick={addPlace}>
-            <Plus size={15} aria-hidden="true" />
-            {t("place.add")}
-          </Button>
-        </div>
+        <ListHeader
+          icon={MapPin}
+          title={t("place.tab")}
+          view={view}
+          onViewChange={setView}
+          trailing={
+            <Button size="sm" onClick={addPlace}>
+              <Plus size={15} aria-hidden="true" />
+              {t("place.add")}
+            </Button>
+          }
+        />
 
         {worldview.places.length === 0 ? (
           <p className="py-20 text-center text-sm text-muted">
             {t("place.listEmpty")}
           </p>
+        ) : view === "gallery" ? (
+          <div className={cn("mt-4", galleryGridClass)}>
+            {orderedPlaces.map(({ node }) => (
+              <EntityCard
+                key={node.id}
+                href={placeHref(locale, worldview.id, node.id)}
+                thumb={<IconCardThumb icon={MapPin} />}
+                name={placeDisplayName(node, locale) || "-"}
+                subtitle={node.kind || undefined}
+              />
+            ))}
+          </div>
         ) : (
-          <div className="mt-4 flex flex-col">
-            {rootPlaces.map((node) => renderPlace(node, 0))}
+          <div className={cn("mt-4", tableClass)}>
+            {orderedPlaces.map(({ node, depth }) => (
+              <Link
+                key={node.id}
+                href={placeHref(locale, worldview.id, node.id)}
+                className={entityRowLinkClass}
+                style={
+                  depth > 0
+                    ? { paddingLeft: `${0.75 + depth * 1.25}rem` }
+                    : undefined
+                }
+              >
+                <EntityRowBody
+                  thumb={<IconRowThumb icon={MapPin} />}
+                  name={placeDisplayName(node, locale) || "-"}
+                  meta={node.kind ? <KindBadge>{node.kind}</KindBadge> : undefined}
+                />
+              </Link>
+            ))}
           </div>
         )}
       </div>
