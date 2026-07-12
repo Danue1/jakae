@@ -36,6 +36,7 @@ import {
   createTimelineEvent,
   eventDisplayTitle,
 } from "@/core/model";
+import { eventMoveTargetIndex } from "@/core/selectors";
 import { LOCALES, type Locale } from "@/locales";
 import { eventHref, timelineHref } from "@/react/links";
 import { useLocale, useTranslations } from "next-intl";
@@ -91,7 +92,7 @@ export function ChapterPageClient() {
   }
 
   const chapterEvents = worldview.events.filter(
-    (event) => event.ownerCharacterId === null && event.chapterId === chapter.id,
+    (event) => event.chapterId === chapter.id,
   );
 
   const addEvent = () => {
@@ -101,16 +102,14 @@ export function ChapterPageClient() {
   };
 
   const moveEvent = (eventId: string, direction: -1 | 1) => {
-    const position = chapterEvents.findIndex((event) => event.id === eventId);
-    const swapWith = chapterEvents[position + direction];
-    if (!swapWith) return;
-    const without = worldview.events.filter((event) => event.id !== eventId);
-    const swapIndex = without.findIndex((event) => event.id === swapWith.id);
-    dispatchCommand({
-      type: "move-event",
+    const targetIndex = eventMoveTargetIndex(
+      worldview.events,
+      chapterEvents,
       eventId,
-      targetIndex: direction > 0 ? swapIndex + 1 : swapIndex,
-    });
+      direction,
+    );
+    if (targetIndex === null) return;
+    dispatchCommand({ type: "move-event", eventId, targetIndex });
   };
 
   const deleteChapter = () => {
@@ -119,7 +118,7 @@ export function ChapterPageClient() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pb-24 pt-6 sm:px-6">
+    <div className="mx-auto max-w-page px-4 pb-24 pt-6 sm:px-6">
       <div className="flex items-center gap-2">
         <Link
           href={timelineHref(locale, worldview.id)}
@@ -258,6 +257,11 @@ export function ChapterPageClient() {
                     {eventDisplayTitle(event, locale) ||
                       t("timeline.untitledEvent")}
                   </span>
+                  {event.ownerCharacterId !== null && (
+                    <span className="shrink-0 rounded-full bg-hover px-2 py-0.5 text-xs font-semibold text-muted">
+                      {t("timeline.badgePersonal")}
+                    </span>
+                  )}
                   <ChevronRight
                     size={16}
                     aria-hidden="true"

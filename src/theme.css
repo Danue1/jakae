@@ -15,6 +15,8 @@
   --color-danger: #b4533a;
   --radius-card: 10px;
   --grid-template-columns-detail: 300px 1fr;
+  /* 모든 페이지 컨테이너 통일 폭 — max-w-page 로 참조 */
+  --container-page: 64rem;
   --shadow-popover: 0 10px 28px rgb(10 20 40 / 0.18);
   --font-sans: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo",
     "Noto Sans KR", "Malgun Gothic", -apple-system, sans-serif;

@@ -1,5 +1,5 @@
 import { indexedDbStorage } from "../adapters/indexedDbStorage";
-import { createCharacter, createWorldview } from "../core/model";
+import { createCharacter, createGroup, createWorldview } from "../core/model";
 import type { SeedContent } from "../locales";
 
 let seedPromise: Promise<void> | null = null;
@@ -22,14 +22,11 @@ async function seedSampleWorldview(
 
   const worldview = createWorldview(
     seed.sampleWorldviewName,
-    { fieldLabels: seed.fieldLabels, connectors: seed.connectors },
+    { fieldLabels: seed.fieldLabels },
     locale,
     seed.sampleEra,
   );
-  worldview.groups = seed.sampleGroups.map((name) => ({
-    id: crypto.randomUUID(),
-    name,
-  }));
+  worldview.groups = seed.sampleGroups.map((name) => createGroup(name));
 
   const characters = seed.sampleCharacters.map((characterSeed) => {
     const character = createCharacter(worldview.id, characterSeed.name);
@@ -50,11 +47,9 @@ async function seedSampleWorldview(
   for (const relationSeed of seed.sampleRelations) {
     const from = characters[relationSeed.fromIndex];
     const to = characters[relationSeed.toIndex];
-    const connector = seed.connectors[relationSeed.connectorIndex];
-    if (!from || !to || connector === undefined) continue;
+    if (!from || !to) continue;
     from.relations.push({
       targetCharacterId: to.id,
-      connector,
       label: relationSeed.label,
     });
   }

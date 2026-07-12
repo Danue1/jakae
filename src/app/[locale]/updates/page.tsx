@@ -29,7 +29,7 @@ export default async function UpdatesPage({
     );
 
   return (
-    <article className="mx-auto max-w-xl px-5 py-14">
+    <article className="mx-auto max-w-page px-5 py-14">
       <Link
         href={libraryHref(resolved)}
         className="text-sm text-muted hover:text-ink"

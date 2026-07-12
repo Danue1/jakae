@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>캐릭터 추가 필드 시안 — 이미지·대사·팔레트·양방향 관계</title>
+<style>
+  /* ── T1 여백 테마 토큰 (src/theme.css) ─────────────── */
+  :root{
+    --ground:#fff;--ink:#1c2128;--muted:#5e6b7c;--line:#dfe4ec;--hover:#f5f7fa;
+    --accent:#3e6db5;--accent-soft:#e7eef9;--star:#d0952f;--danger:#b4533a;
+    --radius:10px;--shadow:0 10px 28px rgb(10 20 40 / .18);
+    --font:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Noto Sans KR",-apple-system,sans-serif;
+    --xs:13px;--sm:15px;--base:17px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef1f5;color:var(--ink);font-family:var(--font);font-size:var(--sm);
+    line-height:1.55;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4,p{margin:0}
+  .page{max-width:1180px;margin:0 auto;padding:28px 20px 90px}
+  .lead h1{font-size:26px;font-weight:800;letter-spacing:-.02em}
+  .lead p{margin-top:6px;color:var(--muted);max-width:70ch}
+
+  /* 기능 전환 탭 */
+  .switch{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 6px;position:sticky;top:0;background:#eef1f5;padding:12px 0;z-index:5}
+  .switch button{border:1px solid var(--line);background:var(--ground);color:var(--ink);border-radius:999px;
+    padding:9px 16px;font:inherit;font-size:var(--sm);cursor:pointer;display:flex;gap:8px;align-items:center}
+  .switch button .n{width:20px;height:20px;border-radius:50%;background:var(--hover);color:var(--muted);
+    display:grid;place-items:center;font-size:12px;font-weight:800}
+  .switch button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+  .switch button[aria-selected="true"] .n{background:rgba(255,255,255,.25);color:#fff}
+
+  .feature{display:none}
+  .feature[data-active]{display:block}
+  .note{background:var(--accent-soft);border-radius:12px;padding:14px 16px;margin:8px 0 22px;color:#22364f}
+  .note b{color:var(--ink)}
+  .note .why{margin-top:6px;font-size:var(--xs);color:#3a4a60}
+
+  .grid{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+  .concept{width:360px;max-width:100%;flex:1 1 340px}
+  .concept .tag{display:inline-block;background:var(--ground);border:1px solid #c9d8ef;color:var(--accent);
+    border-radius:999px;padding:2px 11px;font-size:var(--xs);font-weight:700;margin-bottom:10px}
+  .concept h3{font-size:var(--base);font-weight:800;margin-bottom:3px}
+  .concept .sub{color:var(--muted);font-size:var(--xs);margin-bottom:12px}
+  .card{background:var(--ground);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px}
+
+  /* 섹션 라벨 (실제 SectionCaption) */
+  .cap{font-size:var(--xs);font-weight:800;letter-spacing:.03em;color:var(--muted);margin-bottom:8px;text-transform:none}
+  .cap-row{display:flex;align-items:baseline;justify-content:space-between}
+  .cap-row .link{color:var(--accent);font-size:var(--xs);font-weight:600}
+
+  /* 아바타 / 색 블록 */
+  .av{border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;flex:none;overflow:hidden}
+  .btn{border:1px solid var(--line);background:var(--ground);color:var(--ink);border-radius:10px;
+    padding:8px 12px;font:inherit;font-size:var(--sm);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+  .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+  .btn.sm{padding:5px 10px;font-size:var(--xs)}
+  .ghost{border:2px dashed var(--line);background:none;color:var(--accent);font-weight:700;border-radius:12px;
+    display:grid;place-items:center;cursor:pointer}
+  .muted{color:var(--muted)}
+  .xs{font-size:var(--xs)}
+
+  /* ────────── 1. 다중 이미지 ────────── */
+  /* 1A 세로 스트립 */
+  .g1a .hero{aspect-ratio:1;border-radius:14px;background:linear-gradient(140deg,#6f9bd8,#3e6db5);
+    display:grid;place-items:center;color:#fff;font-weight:800;font-size:34px;position:relative}
+  .g1a .hero .badge{position:absolute;left:10px;top:10px;background:rgba(0,0,0,.4);color:#fff;border-radius:999px;
+    padding:2px 10px;font-size:var(--xs);font-weight:700}
+  .g1a .strip{display:flex;gap:8px;margin-top:8px}
+  .g1a .strip .th{width:54px;height:54px;border-radius:9px;flex:none;display:grid;place-items:center;color:#fff;
+    font-weight:700;font-size:12px;cursor:pointer;border:2px solid transparent}
+  .g1a .strip .th.on{border-color:var(--accent)}
+  .g1a .strip .add{width:54px;height:54px;flex:none;font-size:20px}
+
+  /* 1B 그리드 갤러리 */
+  .g1b .gal{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .g1b .gal .cell{aspect-ratio:1;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:700;
+    font-size:13px;position:relative;cursor:pointer}
+  .g1b .gal .cell.main::after{content:"대표";position:absolute;left:5px;top:5px;background:rgba(0,0,0,.45);
+    color:#fff;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700}
+  .g1b .gal .add{aspect-ratio:1;font-size:22px}
+
+  /* 1C 캐러셀 + 캡션 */
+  .g1c .hero{aspect-ratio:4/5;border-radius:14px;display:grid;place-items:end center;color:#fff;position:relative;
+    background:linear-gradient(150deg,#7ba7c9,#4a6b8a);padding-bottom:12px}
+  .g1c .cap-in{background:rgba(0,0,0,.42);border-radius:999px;padding:3px 12px;font-size:var(--xs);font-weight:600}
+  .g1c .arrows{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 8px}
+  .g1c .arrows span{width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.35);color:#fff;
+    display:grid;place-items:center;font-size:16px}
+  .g1c .dots{display:flex;gap:5px;justify-content:center;margin-top:8px}
+  .g1c .dots i{width:7px;height:7px;border-radius:50%;background:var(--line)}
+  .g1c .dots i.on{background:var(--accent);width:18px;border-radius:99px}
+
+  /* ────────── 2. 대사 ────────── */
+  .quoterow{display:flex;gap:8px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+  .quoterow:last-child{border-bottom:0}
+  /* 2A 말풍선 */
+  .g2a .bubble{background:var(--hover);border-radius:14px;border-top-left-radius:4px;padding:9px 13px;flex:1}
+  .g2a .bubble p{font-size:var(--sm)}
+  .g2a .bubble .ctx{color:var(--muted);font-size:var(--xs);margin-top:3px}
+  .g2a .mk{color:var(--accent);font-size:22px;line-height:1;font-weight:800;flex:none;margin-top:-2px}
+  /* 2B 상황:대사 표 */
+  .g2b .qr{display:grid;grid-template-columns:88px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .g2b .qr:last-child{border-bottom:0}
+  .g2b .qr .situ{color:var(--muted);font-size:var(--xs);font-weight:700;padding-top:2px}
+  .g2b .qr .line{font-size:var(--sm)}
+  /* 2C 말투 노트 + 대표 대사 */
+  .g2c .tone{background:var(--accent-soft);border-radius:12px;padding:11px 13px;margin-bottom:12px}
+  .g2c .tone .k{font-size:var(--xs);font-weight:800;color:var(--accent);margin-bottom:3px}
+  .g2c .big{font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.5}
+  .g2c .big .q{color:var(--accent)}
+
+  /* ────────── 3. 색상 팔레트 ────────── */
+  /* 3A 라벨 스와치 행 */
+  .g3a .sw{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .g3a .sw:last-child{border-bottom:0}
+  .g3a .chip{width:34px;height:34px;border-radius:9px;flex:none;border:1px solid rgba(0,0,0,.08)}
+  .g3a .sw .nm{font-weight:600}
+  .g3a .sw .hex{margin-left:auto;color:var(--muted);font-size:var(--xs);font-family:ui-monospace,monospace}
+  /* 3B 큰 색면 스트립 */
+  .g3b .strip{display:flex;border-radius:12px;overflow:hidden;height:74px}
+  .g3b .strip .seg{flex:1;position:relative;cursor:pointer}
+  .g3b .strip .seg span{position:absolute;left:0;right:0;bottom:6px;text-align:center;color:#fff;
+    font-size:11px;font-family:ui-monospace,monospace;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+  .g3b .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px}
+  .g3b .legend .li{display:flex;gap:6px;align-items:center;font-size:var(--xs);color:var(--muted)}
+  .g3b .legend .li i{width:12px;height:12px;border-radius:4px;flex:none}
+  /* 3C 도트 + 역할 */
+  .g3c .dots{display:flex;gap:14px;flex-wrap:wrap}
+  .g3c .item{text-align:center}
+  .g3c .item .d{width:46px;height:46px;border-radius:50%;margin:0 auto 6px;border:2px solid #fff;
+    box-shadow:0 0 0 1px var(--line)}
+  .g3c .item .role{font-size:var(--xs);font-weight:700}
+  .g3c .item .hex{font-size:11px;color:var(--muted);font-family:ui-monospace,monospace}
+
+  /* ────────── 5. 양방향 관계 ────────── */
+  .rel{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .rel:last-child{border-bottom:0}
+  .rel .who{display:flex;align-items:center;gap:8px;min-width:0}
+  .rel .who .av{width:32px;height:32px;font-size:13px;border-radius:9px}
+  .rel .who .nm{font-weight:600;white-space:nowrap}
+  /* 5A 역관계 자동 배지 */
+  .g5a .conn{color:var(--accent);font-weight:700;font-size:var(--xs);background:var(--accent-soft);
+    border-radius:999px;padding:2px 10px;white-space:nowrap}
+  .g5a .back{margin-left:auto;font-size:var(--xs);color:var(--muted);display:flex;align-items:center;gap:5px}
+  .g5a .back b{color:var(--ink)}
+  .g5a .sync{color:var(--accent);font-weight:700}
+  /* 5B 양쪽 라벨 대칭 편집 */
+  .g5b .pair{display:grid;grid-template-columns:1fr 30px 1fr;gap:8px;align-items:center;padding:11px 0;
+    border-bottom:1px solid var(--line)}
+  .g5b .pair:last-child{border-bottom:0}
+  .g5b .side{display:flex;align-items:center;gap:7px;min-width:0}
+  .g5b .side.r{flex-direction:row-reverse;text-align:right}
+  .g5b .side .lab{border:1px solid var(--line);border-radius:8px;padding:3px 9px;font-size:var(--xs);
+    font-weight:600;background:var(--hover)}
+  .g5b .swap{color:var(--muted);text-align:center;font-size:15px}
+  /* 5C 관계 그래프 미니맵 */
+  .g5c .map{position:relative;height:180px;background:var(--hover);border-radius:12px;overflow:hidden}
+  .g5c .node{position:absolute;transform:translate(-50%,-50%);text-align:center}
+  .g5c .node .av{width:40px;height:40px;font-size:15px;border-radius:11px;margin:0 auto}
+  .g5c .node .nm{font-size:var(--xs);font-weight:700;margin-top:3px}
+  .g5c .edge{position:absolute;font-size:11px;color:var(--muted);background:var(--ground);
+    border:1px solid var(--line);border-radius:999px;padding:1px 7px;transform:translate(-50%,-50%);white-space:nowrap}
+  .g5c svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+  .foot{margin-top:26px;color:var(--muted);font-size:var(--xs)}
+  @media(max-width:760px){.switch button{padding:8px 12px}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="lead">
+    <h1>캐릭터 추가 필드 시안</h1>
+    <p>다중 이미지 · 대사 · 색상 팔레트 · 양방향 관계 — 각 기능마다 2~3개 배치안을 담았습니다. 상단 탭으로 기능을 전환하세요. 실제 캐릭터 상세 페이지의 T1 톤·섹션 라벨을 그대로 사용합니다.</p>
+  </div>
+
+  <div class="switch" role="tablist">
+    <button role="tab" aria-selected="true" data-f="f1"><span class="n">1</span>다중 이미지</button>
+    <button role="tab" aria-selected="false" data-f="f2"><span class="n">2</span>대사 · 말투</button>
+    <button role="tab" aria-selected="false" data-f="f3"><span class="n">3</span>색상 팔레트</button>
+    <button role="tab" aria-selected="false" data-f="f5"><span class="n">5</span>양방향 관계</button>
+  </div>
+
+  <!-- ══════════ 1. 다중 이미지 ══════════ -->
+  <section class="feature" id="f1" data-active>
+    <div class="note"><b>이미지 여러 장</b> — 표정차·의상차·연령대별 러프를 캐릭터당 여러 장 보관하고 대표 1장을 지정합니다. 대표는 카드·관계·연표 썸네일에 쓰입니다.
+      <div class="why">현재 모델: <code>imageId</code> 하나 → 제안: <code>images: {id, caption}[]</code> + <code>coverImageId</code></div>
+    </div>
+    <div class="grid">
+      <div class="concept g1a">
+        <span class="tag">시안 1A</span><h3>대표 + 세로 스트립</h3>
+        <div class="sub">상세 페이지 좌측 이미지 아래에 썸네일 줄. 가장 변경 최소.</div>
+        <div class="card">
+          <div class="hero" style="background:linear-gradient(140deg,#6f9bd8,#3e6db5)">가<span class="badge">대표</span></div>
+          <div class="strip">
+            <div class="th on" style="background:#3e6db5">정면</div>
+            <div class="th" style="background:#8a6f9d">교복</div>
+            <div class="th" style="background:#6f9d7e">유년</div>
+            <div class="ghost add">＋</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="concept g1b">
+        <span class="tag">시안 1B</span><h3>3열 그리드 갤러리</h3>
+        <div class="sub">한눈에 전부 보이는 격자. 러프가 많은 캐릭터에 유리.</div>
+        <div class="card">
+          <div class="gal">
+            <div class="cell main" style="background:#3e6db5">정면</div>
+            <div class="cell" style="background:#8a6f9d">교복</div>
+            <div class="cell" style="background:#6f9d7e">유년</div>
+            <div class="cell" style="background:#c08a4a">전투</div>
+            <div class="cell" style="background:#5a7d9d">사복</div>
+            <div class="ghost add">＋</div>
+          </div>
+          <div class="xs muted" style="margin-top:10px">길게 눌러 대표 지정 · 순서 변경</div>
+        </div>
+      </div>
+
+      <div class="concept g1c">
+        <span class="tag">시안 1C</span><h3>캐러셀 + 장면 캡션</h3>
+        <div class="sub">한 장씩 크게. 좌우로 넘기고 장면 설명을 겹쳐 표시.</div>
+        <div class="card">
+          <div class="hero">
+            <div class="arrows"><span>‹</span><span>›</span></div>
+            <div class="cap-in">교복 · 1학년 봄</div>
+          </div>
+          <div class="dots"><i class="on"></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 2. 대사 · 말투 ══════════ -->
+  <section class="feature" id="f2">
+    <div class="note"><b>대사 · 말투 샘플</b> — 스토리 산문과 별개로 "이 캐릭터라면 이렇게 말한다" 예시. 성격 태그가 요약이라면 대사는 근거입니다.
+      <div class="why">제안: <code>quotes: {line, situation}[]</code> (스토리처럼 번역 대상 아님 — 사용자 데이터)</div>
+    </div>
+    <div class="grid">
+      <div class="concept g2a">
+        <span class="tag">시안 2A</span><h3>말풍선 목록</h3>
+        <div class="sub">대사를 채팅 말풍선처럼. 상황은 아래 작은 글씨.</div>
+        <div class="card">
+          <div class="cap">대사</div>
+          <div class="quoterow"><span class="mk">“</span><div class="bubble"><p>됐어. 나 혼자 할 수 있으니까 먼저 가.</p><div class="ctx">— 도움을 거절할 때</div></div></div>
+          <div class="quoterow"><span class="mk">“</span><div class="bubble"><p>…고마워. 그치만 다음엔 안 물어봐도 돼.</p><div class="ctx">— 마음을 조금 열 때</div></div></div>
+          <div class="btn sm" style="margin-top:10px">＋ 대사 추가</div>
+        </div>
+      </div>
+
+      <div class="concept g2b">
+        <span class="tag">시안 2B</span><h3>상황 · 대사 2열</h3>
+        <div class="sub">왼쪽 상황, 오른쪽 대사. 자료로 훑기 좋음.</div>
+        <div class="card">
+          <div class="cap">대사</div>
+          <div class="qr"><div class="situ">첫 만남</div><div class="line">"네가 그 소문의 애구나. 별거 없네."</div></div>
+          <div class="qr"><div class="situ">위기</div><div class="line">"물러서. 여긴 내가 막을게."</div></div>
+          <div class="qr"><div class="situ">평소 말버릇</div><div class="line">"뭐, 그럴 수도 있고."</div></div>
+          <div class="btn sm" style="margin-top:10px">＋ 대사 추가</div>
+        </div>
+      </div>
+
+      <div class="concept g2c">
+        <span class="tag">시안 2C</span><h3>말투 노트 + 대표 대사</h3>
+        <div class="sub">한 줄 말투 요약 + 크게 강조된 대표 한 마디.</div>
+        <div class="card">
+          <div class="cap">말투</div>
+          <div class="tone"><div class="k">말투 노트</div>짧고 무뚝뚝. 반말. 말끝을 흐리는 버릇("…뭐.")</div>
+          <div class="big"><span class="q">"</span>기대 안 해. 그래야 실망도 안 하니까.<span class="q">"</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 3. 색상 팔레트 ══════════ -->
+  <section class="feature" id="f3">
+    <div class="note"><b>색상 팔레트</b> — 헤어·눈·포인트 컬러를 스와치로 저장. 배경색 하나만 있던 <code>appearance</code>를 확장. 컬러 코드는 반복 참조가 잦은 핵심 레퍼런스입니다.
+      <div class="why">제안: <code>appearance.palette: {role, color}[]</code> (역할 라벨은 자유 텍스트)</div>
+    </div>
+    <div class="grid">
+      <div class="concept g3a">
+        <span class="tag">시안 3A</span><h3>라벨 스와치 행</h3>
+        <div class="sub">역할 이름 + 칩 + HEX. 탭하면 값 복사.</div>
+        <div class="card">
+          <div class="cap">색상</div>
+          <div class="g3a">
+            <div class="sw"><span class="chip" style="background:#2b2f38"></span><span class="nm">머리</span><span class="hex">#2B2F38</span></div>
+            <div class="sw"><span class="chip" style="background:#7ec8e3"></span><span class="nm">눈</span><span class="hex">#7EC8E3</span></div>
+            <div class="sw"><span class="chip" style="background:#c0392b"></span><span class="nm">포인트</span><span class="hex">#C0392B</span></div>
+          </div>
+          <div class="btn sm" style="margin-top:10px">＋ 색 추가</div>
+        </div>
+      </div>
+
+      <div class="concept g3b">
+        <span class="tag">시안 3B</span><h3>이어붙인 색면 + 범례</h3>
+        <div class="sub">팔레트를 한 줄 띠로. 전체 조합감을 즉시 확인.</div>
+        <div class="card">
+          <div class="cap">색상</div>
+          <div class="strip">
+            <div class="seg" style="background:#2b2f38"><span>#2B2F38</span></div>
+            <div class="seg" style="background:#7ec8e3"><span>#7EC8E3</span></div>
+            <div class="seg" style="background:#c0392b"><span>#C0392B</span></div>
+            <div class="seg" style="background:#f0e6d2"><span style="color:#555;text-shadow:none">#F0E6D2</span></div>
+          </div>
+          <div class="legend">
+            <span class="li"><i style="background:#2b2f38"></i>머리</span>
+            <span class="li"><i style="background:#7ec8e3"></i>눈</span>
+            <span class="li"><i style="background:#c0392b"></i>포인트</span>
+            <span class="li"><i style="background:#f0e6d2"></i>피부</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="concept g3c">
+        <span class="tag">시안 3C</span><h3>도트 + 역할</h3>
+        <div class="sub">동그란 색점 나열. 무드보드 느낌으로 가볍게.</div>
+        <div class="card">
+          <div class="cap">색상</div>
+          <div class="dots">
+            <div class="item"><div class="d" style="background:#2b2f38"></div><div class="role">머리</div><div class="hex">#2B2F38</div></div>
+            <div class="item"><div class="d" style="background:#7ec8e3"></div><div class="role">눈</div><div class="hex">#7EC8E3</div></div>
+            <div class="item"><div class="d" style="background:#c0392b"></div><div class="role">포인트</div><div class="hex">#C0392B</div></div>
+            <div class="item"><div class="d ghost" style="border-style:dashed;box-shadow:none;display:grid;place-items:center;color:var(--accent)">＋</div><div class="role muted">추가</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 5. 양방향 관계 ══════════ -->
+  <section class="feature" id="f5">
+    <div class="note"><b>양방향 관계</b> — 지금 <code>Relation</code>은 단방향(A→B)입니다. 한쪽에서 "가가 → 호호할머니: 손자"를 넣으면 반대편에 역관계("→ 가가: 손주")를 자동/반자동 생성. 양쪽 카드를 따로 편집하는 수고를 줄입니다.
+      <div class="why">제안: 저장은 단방향 유지, 상대 카드에 역방향을 파생 표시하거나 커맨드로 대칭 생성</div>
+    </div>
+    <div class="grid">
+      <div class="concept g5a">
+        <span class="tag">시안 5A</span><h3>역관계 자동 배지</h3>
+        <div class="sub">이 카드에 넣은 관계 옆에 "상대편에도 생성됨"을 표시.</div>
+        <div class="card">
+          <div class="cap">관계</div>
+          <div class="rel"><div class="who"><span class="av" style="background:#8a6f9d">호</span><span class="nm">호호할머니</span></div>
+            <span class="conn">손자</span>
+            <span class="back"><span class="sync">↔</span> 상대편 <b>손주</b></span></div>
+          <div class="rel"><div class="who"><span class="av" style="background:#6f9d7e">고</span><span class="nm">고영희</span></div>
+            <span class="conn">집사</span>
+            <span class="back muted">역관계 없음 · <span class="sync">＋추가</span></span></div>
+          <div class="btn sm" style="margin-top:10px">＋ 관계 추가</div>
+        </div>
+      </div>
+
+      <div class="concept g5b">
+        <span class="tag">시안 5B</span><h3>양쪽 라벨 대칭 편집</h3>
+        <div class="sub">한 줄에서 A→B, B→A 라벨을 동시에. 대칭이 명시적.</div>
+        <div class="card">
+          <div class="cap">관계</div>
+          <div class="pair">
+            <div class="side"><span class="av" style="background:#3e6db5;width:28px;height:28px;border-radius:8px;font-size:12px">가</span><span class="lab">손자</span></div>
+            <div class="swap">↔</div>
+            <div class="side r"><span class="av" style="background:#8a6f9d;width:28px;height:28px;border-radius:8px;font-size:12px">호</span><span class="lab">손주</span></div>
+          </div>
+          <div class="pair">
+            <div class="side"><span class="av" style="background:#3e6db5;width:28px;height:28px;border-radius:8px;font-size:12px">가</span><span class="lab">집사</span></div>
+            <div class="swap">↔</div>
+            <div class="side r"><span class="av" style="background:#6f9d7e;width:28px;height:28px;border-radius:8px;font-size:12px">고</span><span class="lab" style="color:var(--muted);border-style:dashed">주인 ?</span></div>
+          </div>
+          <div class="btn sm" style="margin-top:10px">＋ 관계 추가</div>
+        </div>
+      </div>
+
+      <div class="concept g5c">
+        <span class="tag">시안 5C</span><h3>관계 미니 그래프</h3>
+        <div class="sub">텍스트 목록 위에 작은 관계도. 연결이 시각적으로.</div>
+        <div class="card">
+          <div class="cap">관계</div>
+          <div class="map">
+            <svg viewBox="0 0 320 180" preserveAspectRatio="none">
+              <line x1="160" y1="90" x2="70" y2="45" stroke="#c9d2df" stroke-width="2"/>
+              <line x1="160" y1="90" x2="250" y2="55" stroke="#c9d2df" stroke-width="2"/>
+              <line x1="160" y1="90" x2="150" y2="150" stroke="#c9d2df" stroke-width="2"/>
+            </svg>
+            <div class="node" style="left:50%;top:50%"><div class="av" style="background:#3e6db5">가</div><div class="nm">가가</div></div>
+            <div class="node" style="left:22%;top:25%"><div class="av" style="background:#8a6f9d">호</div><div class="nm">호호할머니</div></div>
+            <div class="node" style="left:78%;top:30%"><div class="av" style="background:#6f9d7e">고</div><div class="nm">고영희</div></div>
+            <div class="node" style="left:47%;top:83%"><div class="av" style="background:#c08a4a">구</div><div class="nm">구구</div></div>
+            <div class="edge" style="left:36%;top:34%">손자 ↔ 손주</div>
+            <div class="edge" style="left:66%;top:38%">집사</div>
+          </div>
+          <div class="xs muted" style="margin-top:8px">노드를 탭하면 해당 캐릭터로 이동</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">시안 목업 · 정적 HTML · 실제 T1 토큰(src/theme.css) 기준 · 데이터는 예시</div>
+</div>
+
+<script>
+  const tabs=[...document.querySelectorAll('.switch button')];
+  const panels=id=>document.getElementById(id);
+  tabs.forEach(b=>b.addEventListener('click',()=>{
+    tabs.forEach(x=>x.setAttribute('aria-selected', x===b));
+    document.querySelectorAll('.feature').forEach(f=>f.removeAttribute('data-active'));
+    panels(b.dataset.f).setAttribute('data-active','');
+    window.scrollTo({top:0,behavior:'smooth'});
+  }));
+</script>
+</body>
+</html>

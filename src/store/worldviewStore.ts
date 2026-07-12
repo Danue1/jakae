@@ -69,8 +69,12 @@ export async function attachCharacterImage(
   characterId: string,
   file: Blob,
 ): Promise<void> {
-  const imageId = await browserImageAdapter.saveImageFile(file);
-  dispatchCommand({ type: "set-character-image", characterId, imageId });
+  const blobId = await browserImageAdapter.saveImageFile(file);
+  dispatchCommand({
+    type: "add-character-image",
+    characterId,
+    image: { id: crypto.randomUUID(), blobId, caption: "" },
+  });
 }
 
 export async function duplicateCharacter(
@@ -92,7 +96,11 @@ export async function duplicateCharacter(
         `${name}${copySuffix}`,
       ]),
     ),
-    appearance: { ...original.appearance },
+    appearance: {
+      ...original.appearance,
+      palette: original.appearance.palette.map((color) => ({ ...color })),
+    },
+    quotes: original.quotes.map((quote) => ({ ...quote })),
     fieldValues: { ...original.fieldValues },
     fieldValueTranslations: Object.fromEntries(
       Object.entries(original.fieldValueTranslations).map(
@@ -103,14 +111,28 @@ export async function duplicateCharacter(
       ),
     ),
     personalityTags: [...original.personalityTags],
+    tags: [...original.tags],
     story: original.story,
     relations: original.relations.map((relation) => ({ ...relation })),
     groupIds: [...original.groupIds],
     favorite: original.favorite,
   };
-  if (original.imageId) {
-    copy.imageId = await browserImageAdapter.copyImage(original.imageId);
+  // 이미지 블롭을 각각 복제하고 새 항목 id를 부여한다. 대표 지정은 옛 항목→새 항목으로 옮긴다.
+  const copiedImages = [];
+  let copiedCoverImageId: string | null = null;
+  for (const image of original.images) {
+    const copiedBlobId = await browserImageAdapter.copyImage(image.blobId);
+    if (!copiedBlobId) continue;
+    const copiedImageId = crypto.randomUUID();
+    if (image.id === original.coverImageId) copiedCoverImageId = copiedImageId;
+    copiedImages.push({
+      id: copiedImageId,
+      blobId: copiedBlobId,
+      caption: image.caption,
+    });
   }
+  copy.images = copiedImages;
+  copy.coverImageId = copiedCoverImageId;
   dispatchCommand({ type: "create-character", character: copy });
   return copy.id;
 }

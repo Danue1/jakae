@@ -6,11 +6,14 @@ import {
   createTimelineEvent,
   createWorldview,
 } from "./model";
-import { selectCharacterTimeline, selectWorldTimeline } from "./selectors";
+import {
+  eventMoveTargetIndex,
+  selectCharacterTimeline,
+  selectWorldTimeline,
+} from "./selectors";
 
 const SEED_DEFAULTS = {
   fieldLabels: ["나이", "종족"],
-  connectors: ["의"],
 };
 
 function buildState(): {
@@ -150,15 +153,19 @@ describe("타임라인 커맨드", () => {
 });
 
 describe("타임라인 selector", () => {
-  it("selectWorldTimeline은 개인 사건을 빼고 구간별로 묶으며 미분류를 마지막에 둔다", () => {
+  it("selectWorldTimeline은 개인 사건도 포함해 구간별로 묶으며 미분류를 마지막에 둔다", () => {
     const { state, gagaId } = buildState();
     const chapter = createChapter("1막");
     let worldview = applyCommand(state, { type: "add-chapter", chapter }, 2000)
       .state.worldview;
     const chaptered = createTimelineEvent({ chapterId: chapter.id });
+    const personalInChapter = createTimelineEvent({
+      chapterId: chapter.id,
+      ownerCharacterId: gagaId,
+    });
     const loose = createTimelineEvent({ chapterId: null });
-    const personal = createTimelineEvent({ ownerCharacterId: gagaId });
-    for (const event of [chaptered, loose, personal]) {
+    const personalLoose = createTimelineEvent({ ownerCharacterId: gagaId });
+    for (const event of [chaptered, personalInChapter, loose, personalLoose]) {
       worldview = applyCommand(
         { worldview, characters: state.characters },
         { type: "add-event", event },
@@ -169,9 +176,15 @@ describe("타임라인 selector", () => {
     const groups = selectWorldTimeline(worldview);
     expect(groups).toHaveLength(2);
     expect(groups[0]?.chapter?.id).toBe(chapter.id);
-    expect(groups[0]?.events.map((event) => event.id)).toEqual([chaptered.id]);
+    expect(groups[0]?.events.map((event) => event.id)).toEqual([
+      chaptered.id,
+      personalInChapter.id,
+    ]);
     expect(groups[1]?.chapter).toBeNull();
-    expect(groups[1]?.events.map((event) => event.id)).toEqual([loose.id]);
+    expect(groups[1]?.events.map((event) => event.id)).toEqual([
+      loose.id,
+      personalLoose.id,
+    ]);
   });
 
   it("selectCharacterTimeline은 참여한 세계관 사건과 소유한 개인 사건을 모은다", () => {
@@ -195,5 +208,39 @@ describe("타임라인 selector", () => {
       participated.id,
       personal.id,
     ]);
+  });
+
+  it("eventMoveTargetIndex는 형제 안에서 인접 사건과 자리를 바꾸는 전역 인덱스를 준다", () => {
+    const a = createTimelineEvent({ chapterId: null });
+    const chaptered = createTimelineEvent({ chapterId: "c1" });
+    const b = createTimelineEvent({ chapterId: null });
+    const events = [a, chaptered, b];
+    const siblings = [a, b];
+    // b를 위로 → a 앞(전역 인덱스 0)
+    expect(eventMoveTargetIndex(events, siblings, b.id, -1)).toBe(0);
+    // a를 아래로 → b 뒤. b는 원소 제거 배열 [chaptered, b]에서 인덱스 1 → +1 = 2
+    expect(eventMoveTargetIndex(events, siblings, a.id, 1)).toBe(2);
+    // 경계 밖은 null
+    expect(eventMoveTargetIndex(events, siblings, a.id, -1)).toBeNull();
+    expect(eventMoveTargetIndex(events, siblings, b.id, 1)).toBeNull();
+  });
+});
+
+describe("set-event-owner (개인↔세계관 전환)", () => {
+  it("개인 사건을 세계관 사건으로 바꾸고 역커맨드로 되돌린다", () => {
+    const { state, gagaId } = buildState();
+    const event = createTimelineEvent({ ownerCharacterId: gagaId });
+    const next = applyCommand(state, { type: "add-event", event }, 2000).state;
+
+    const applied = applyCommand(
+      next,
+      { type: "set-event-owner", eventId: event.id, ownerCharacterId: null },
+      2100,
+    );
+    expect(applied.state.worldview.events[0]?.ownerCharacterId).toBeNull();
+    expect(applied.dirty).toEqual({ worldview: true });
+
+    const undone = applyCommand(applied.state, applied.inverse, 2200);
+    expect(undone.state.worldview.events[0]?.ownerCharacterId).toBe(gagaId);
   });
 });

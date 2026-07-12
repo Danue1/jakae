@@ -12,7 +12,7 @@ export function SiteFooter() {
   const t = useTranslations();
 
   return (
-    <footer className="mx-auto max-w-2xl px-5 pb-12">
+    <footer className="mx-auto max-w-page px-5 pb-12">
       <div className="border-t border-line pt-4 text-center text-xs text-muted">
         <Link
           href={updatesHref(locale)}

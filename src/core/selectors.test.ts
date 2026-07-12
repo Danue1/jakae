@@ -4,11 +4,14 @@ import {
   createCharacter,
   createWorldview,
 } from "./model";
-import { defaultViewState, selectVisibleCharacters } from "./selectors";
+import {
+  defaultViewState,
+  selectAllTags,
+  selectVisibleCharacters,
+} from "./selectors";
 
 const SEED_DEFAULTS = {
   fieldLabels: ["나이", "종족"],
-  connectors: ["의"],
 };
 
 describe("selectVisibleCharacters", () => {
@@ -58,6 +61,24 @@ describe("selectVisibleCharacters", () => {
     ).toEqual(["고영희", "가가"]);
   });
 
+  it("태그 필터는 해당 분류 태그를 가진 캐릭터만 남긴다", () => {
+    const worldview = createWorldview("테스트", SEED_DEFAULTS, "ko", "", 0);
+    const first = createCharacter(worldview.id, "가가", 0);
+    first.tags = ["주연", "학생"];
+    const second = createCharacter(worldview.id, "고영희", 0);
+    second.tags = ["조연"];
+    const third = createCharacter(worldview.id, "구구", 0);
+    const characters = [first, second, third];
+
+    expect(
+      selectVisibleCharacters(
+        characters,
+        { ...defaultViewState, tag: "주연" },
+        "ko",
+      ).map((character) => character.name),
+    ).toEqual(["가가"]);
+  });
+
   it("즐겨찾기 뷰는 favorite만, 휴지통 뷰는 삭제된 것만 남긴다", () => {
     const worldview = createWorldview("테스트", SEED_DEFAULTS, "ko", "", 0);
     const first = createCharacter(worldview.id, "가가", 0);
@@ -81,6 +102,21 @@ describe("selectVisibleCharacters", () => {
         "ko",
       ).map((character) => character.name),
     ).toEqual(["구구"]);
+  });
+});
+
+describe("selectAllTags", () => {
+  it("삭제되지 않은 캐릭터의 태그를 중복 없이 이름순으로 모은다", () => {
+    const worldview = createWorldview("테스트", SEED_DEFAULTS, "ko", "", 0);
+    const first = createCharacter(worldview.id, "가가", 0);
+    first.tags = ["학생", "주연"];
+    const second = createCharacter(worldview.id, "고영희", 0);
+    second.tags = ["주연"];
+    const trashed = createCharacter(worldview.id, "구구", 0);
+    trashed.tags = ["삭제됨"];
+    trashed.deletedAt = 100;
+
+    expect(selectAllTags([first, second, trashed])).toEqual(["주연", "학생"]);
   });
 });
 

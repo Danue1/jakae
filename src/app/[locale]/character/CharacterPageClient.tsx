@@ -8,14 +8,18 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { Avatar } from "@/components/Avatar";
+import { useEffect, useState } from "react";
 import { BackgroundPicker } from "@/components/BackgroundPicker";
+import { CharacterImages } from "@/components/CharacterImages";
 import { CharacterTimeline } from "@/components/CharacterTimeline";
 import { LocaleTabs } from "@/components/LocaleTabs";
 import { MissingWorldview } from "@/components/MissingWorldview";
+import { PaletteEditor } from "@/components/PaletteEditor";
+import { QuoteEditor } from "@/components/QuoteEditor";
 import { RelationEditor } from "@/components/RelationEditor";
+import { RelationGraph } from "@/components/RelationGraph";
 import { SavedIndicator } from "@/components/SavedIndicator";
+import { CharacterTagsEditor } from "@/components/CharacterTagsEditor";
 import { TagEditor } from "@/components/TagEditor";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,11 +43,7 @@ import { useFieldBinding } from "@/react/useFieldBinding";
 import { useLocale, useTranslations } from "next-intl";
 import { useOpenWorldview } from "@/react/useOpenWorldview";
 import { useWorldviewStore } from "@/react/useWorldviewStore";
-import {
-  attachCharacterImage,
-  dispatchCommand,
-  duplicateCharacter,
-} from "@/store/worldviewStore";
+import { dispatchCommand, duplicateCharacter } from "@/store/worldviewStore";
 
 function SectionCaption({ children }: { children: string }) {
   return (
@@ -109,7 +109,6 @@ export function CharacterPageClient() {
   const loadStatus = useOpenWorldview(worldviewId);
   const worldview = useWorldviewStore((state) => state.worldview);
   const characters = useWorldviewStore((state) => state.characters);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const [nameLocale, setNameLocale] = useState<Locale>(locale);
 
   const character = characters.find(
@@ -153,7 +152,7 @@ export function CharacterPageClient() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 pb-24 pt-6 sm:px-6">
+    <div className="mx-auto max-w-page px-4 pb-24 pt-6 sm:px-6">
       <div className="flex items-center gap-2">
         <Link
           href={worldHref(locale, worldview.id)}
@@ -211,24 +210,7 @@ export function CharacterPageClient() {
 
       <div className="mt-4 lg:grid lg:grid-cols-detail lg:gap-10">
         <div className="mx-auto w-full max-w-sm lg:mx-0 lg:max-w-none">
-          <button
-            aria-label={t("character.attachImage")}
-            className="block w-full rounded-card hover:opacity-90"
-            onClick={() => imageInputRef.current?.click()}
-          >
-            <Avatar character={character} className="w-full rounded-2xl" />
-          </button>
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void attachCharacterImage(character.id, file);
-              event.target.value = "";
-            }}
-          />
+          <CharacterImages character={character} />
           <div className="mt-3">
             <BackgroundPicker character={character} />
           </div>
@@ -289,12 +271,27 @@ export function CharacterPageClient() {
               />
             ))}
           </section>
+
+          <section className="mt-5">
+            <SectionCaption>{t("palette.title")}</SectionCaption>
+            <PaletteEditor target={{ kind: "character", character }} />
+          </section>
         </div>
 
         <div className="mt-7 flex flex-col gap-7 lg:mt-0">
           <section>
             <SectionCaption>{t("character.personality")}</SectionCaption>
             <TagEditor character={character} />
+          </section>
+
+          <section>
+            <SectionCaption>{t("character.tags")}</SectionCaption>
+            <CharacterTagsEditor character={character} />
+          </section>
+
+          <section>
+            <SectionCaption>{t("quote.title")}</SectionCaption>
+            <QuoteEditor character={character} />
           </section>
 
           <section>
@@ -315,11 +312,12 @@ export function CharacterPageClient() {
 
           <section>
             <SectionCaption>{t("character.relations")}</SectionCaption>
-            <RelationEditor
+            <RelationGraph
               worldview={worldview}
               character={character}
               characters={characters}
             />
+            <RelationEditor character={character} characters={characters} />
           </section>
 
           <section>

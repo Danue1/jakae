@@ -36,6 +36,7 @@ import {
   chapterDisplayName,
   characterDisplayName,
   eventDisplayTitle,
+  placeDisplayName,
 } from "@/core/model";
 import { LOCALES, type Locale } from "@/locales";
 import { characterHref, timelineHref, worldHref } from "@/react/links";
@@ -45,6 +46,8 @@ import { useWorldviewStore } from "@/react/useWorldviewStore";
 import { dispatchCommand } from "@/store/worldviewStore";
 
 const NO_CHAPTER = "__none__";
+const NO_OWNER = "__none__";
+const NO_PLACE = "__none__";
 
 function SectionCaption({ children }: { children: string }) {
   return (
@@ -106,10 +109,12 @@ export function EventPageClient() {
     router.replace(backHref || worldHref(locale, worldview.id));
   };
 
-  const isWorldEvent = event.ownerCharacterId === null;
+  const ownerCandidates = characters.filter(
+    (candidate) => candidate.deletedAt === null,
+  );
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pb-24 pt-6 sm:px-6">
+    <div className="mx-auto max-w-page px-4 pb-24 pt-6 sm:px-6">
       <div className="flex items-center gap-2">
         <Link
           href={backHref}
@@ -142,14 +147,6 @@ export function EventPageClient() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
-      {owner && (
-        <p className="mt-3 text-xs font-semibold text-accent">
-          {t("event.personalOwner", {
-            name: characterDisplayName(owner, locale) || "-",
-          })}
-        </p>
-      )}
 
       <div className="mt-3 flex items-start gap-2">
         <Input
@@ -186,7 +183,7 @@ export function EventPageClient() {
 
       <div className="mt-5">
         <div className="flex items-center gap-2 border-b border-line py-1.5">
-          <span className="w-16 shrink-0 text-sm text-muted">
+          <span className="w-20 shrink-0 text-sm text-muted">
             {t("event.whenLabel")}
           </span>
           <Input
@@ -201,42 +198,93 @@ export function EventPageClient() {
             }
           />
         </div>
-        {isWorldEvent && (
-          <div className="flex items-center gap-2 border-b border-line py-1.5">
-            <span className="w-16 shrink-0 text-sm text-muted">
-              {t("event.chapterLabel")}
-            </span>
+        <div className="flex items-center gap-2 border-b border-line py-1.5">
+          <span className="w-20 shrink-0 text-sm text-muted">
+            {t("event.chapterLabel")}
+          </span>
+          <Select
+            value={event.chapterId ?? NO_CHAPTER}
+            onValueChange={(value) =>
+              dispatchCommand({
+                type: "set-event-chapter",
+                eventId: event.id,
+                chapterId: value === NO_CHAPTER ? null : value,
+              })
+            }
+          >
+            <SelectTrigger className="bg-hover">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_CHAPTER}>
+                {t("event.chapterNone")}
+              </SelectItem>
+              {worldview.chapters.map((chapter) => (
+                <SelectItem key={chapter.id} value={chapter.id}>
+                  {chapterDisplayName(chapter, locale) ||
+                    t("timeline.untitledChapter")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2 border-b border-line py-1.5">
+          <span className="w-20 shrink-0 text-sm text-muted">
+            {t("event.ownerLabel")}
+          </span>
+          <Select
+            value={event.ownerCharacterId ?? NO_OWNER}
+            onValueChange={(value) =>
+              dispatchCommand({
+                type: "set-event-owner",
+                eventId: event.id,
+                ownerCharacterId: value === NO_OWNER ? null : value,
+              })
+            }
+          >
+            <SelectTrigger className="bg-hover">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_OWNER}>{t("event.ownerNone")}</SelectItem>
+              {ownerCandidates.map((candidate) => (
+                <SelectItem key={candidate.id} value={candidate.id}>
+                  {characterDisplayName(candidate, locale) || "-"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2 border-b border-line py-1.5">
+          <span className="w-20 shrink-0 text-sm text-muted">
+            {t("event.placeLabel")}
+          </span>
+          {worldview.places.length > 0 ? (
             <Select
-              value={event.chapterId ?? NO_CHAPTER}
+              value={event.placeId ?? NO_PLACE}
               onValueChange={(value) =>
                 dispatchCommand({
-                  type: "set-event-chapter",
+                  type: "set-event-place-id",
                   eventId: event.id,
-                  chapterId: value === NO_CHAPTER ? null : value,
+                  placeId: value === NO_PLACE ? null : value,
                 })
               }
             >
-              <SelectTrigger className="bg-hover">
-                <SelectValue />
+              <SelectTrigger className="w-44 shrink-0 bg-hover">
+                <SelectValue placeholder={t("event.placeSelectNone")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NO_CHAPTER}>
-                  {t("event.chapterNone")}
+                <SelectItem value={NO_PLACE}>
+                  {t("event.placeSelectNone")}
                 </SelectItem>
-                {worldview.chapters.map((chapter) => (
-                  <SelectItem key={chapter.id} value={chapter.id}>
-                    {chapterDisplayName(chapter, locale) ||
-                      t("timeline.untitledChapter")}
+                {worldview.places.map((place) => (
+                  <SelectItem key={place.id} value={place.id}>
+                    {placeDisplayName(place, locale) || "-"}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        )}
-        <div className="flex items-center gap-2 border-b border-line py-1.5">
-          <span className="w-16 shrink-0 text-sm text-muted">
-            {t("event.placeLabel")}
-          </span>
+          ) : null}
           <Input
             placeholder="-"
             value={event.place}

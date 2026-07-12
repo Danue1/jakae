@@ -90,8 +90,13 @@ export const indexedDbStorage: StoragePort = {
       "readwrite",
     );
     for (const character of characters) {
-      if (character.imageId) {
-        transaction.objectStore("images").delete(character.imageId);
+      // 저장 레코드는 구(imageId) · 신(images[]) 형태가 섞일 수 있어 둘 다 정리한다.
+      const legacyImageId = (character as { imageId?: string | null }).imageId;
+      if (legacyImageId) {
+        transaction.objectStore("images").delete(legacyImageId);
+      }
+      for (const image of character.images ?? []) {
+        transaction.objectStore("images").delete(image.blobId);
       }
       transaction.objectStore("characters").delete(character.id);
     }

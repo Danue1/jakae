@@ -12,13 +12,11 @@ export interface SampleCharacterSeed {
 export interface SampleRelationSeed {
   fromIndex: number;
   toIndex: number;
-  connectorIndex: number;
   label: string;
 }
 
 export interface SeedContent {
   fieldLabels: string[];
-  connectors: string[];
   sampleWorldviewName: string;
   sampleEra: string;
   sampleGroups: [string, string];
@@ -28,7 +26,6 @@ export interface SeedContent {
 
 const ko: SeedContent = {
   fieldLabels: ["나이", "종족", "성별", "신장", "체중"],
-  connectors: ["의", "에게", "를"],
   sampleWorldviewName: "어쩌구 우주",
   sampleEra: "2020",
   sampleGroups: ["우주선 크루", "마을 사람들"],
@@ -76,14 +73,13 @@ const ko: SeedContent = {
     },
   ],
   sampleRelations: [
-    { fromIndex: 0, toIndex: 1, connectorIndex: 0, label: "집사" },
-    { fromIndex: 0, toIndex: 4, connectorIndex: 0, label: "손자" },
+    { fromIndex: 0, toIndex: 1, label: "집사" },
+    { fromIndex: 0, toIndex: 4, label: "손자" },
   ],
 };
 
 const en: SeedContent = {
   fieldLabels: ["Age", "Species", "Gender", "Height", "Weight"],
-  connectors: ["'s", "→"],
   sampleWorldviewName: "Whatever Universe",
   sampleEra: "2020",
   sampleGroups: ["Spaceship crew", "Villagers"],
@@ -131,14 +127,13 @@ const en: SeedContent = {
     },
   ],
   sampleRelations: [
-    { fromIndex: 0, toIndex: 1, connectorIndex: 0, label: "butler" },
-    { fromIndex: 0, toIndex: 4, connectorIndex: 0, label: "grandson" },
+    { fromIndex: 0, toIndex: 1, label: "butler" },
+    { fromIndex: 0, toIndex: 4, label: "grandson" },
   ],
 };
 
 const ja: SeedContent = {
   fieldLabels: ["年齢", "種族", "性別", "身長", "体重"],
-  connectors: ["の", "へ", "を"],
   sampleWorldviewName: "なんとか宇宙",
   sampleEra: "2020",
   sampleGroups: ["宇宙船クルー", "村のひとたち"],
@@ -186,8 +181,8 @@ const ja: SeedContent = {
     },
   ],
   sampleRelations: [
-    { fromIndex: 0, toIndex: 1, connectorIndex: 0, label: "執事" },
-    { fromIndex: 0, toIndex: 4, connectorIndex: 0, label: "孫" },
+    { fromIndex: 0, toIndex: 1, label: "執事" },
+    { fromIndex: 0, toIndex: 4, label: "孫" },
   ],
 };
 

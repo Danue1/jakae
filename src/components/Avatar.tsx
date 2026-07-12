@@ -1,4 +1,4 @@
-import type { Character } from "../core/model";
+import { characterCoverImage, type Character } from "../core/model";
 import { useImageUrl } from "../react/useImageUrl";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,7 @@ export function Avatar({
   character: Character;
   className?: string;
 }) {
-  const imageUrl = useImageUrl(character.imageId);
+  const imageUrl = useImageUrl(characterCoverImage(character)?.blobId ?? null);
   const [autoTint, autoInk] = tintPairForIdentifier(character.id);
   const backgroundColor = character.appearance.backgroundColor ?? autoTint;
   const silhouetteColor = character.appearance.backgroundColor

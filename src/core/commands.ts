@@ -1,9 +1,14 @@
 import type {
   Chapter,
   Character,
+  CharacterImage,
+  CharacterQuote,
   EventParticipant,
   FieldDefinition,
+  GlossaryTerm,
   Group,
+  PaletteColor,
+  Place,
   Relation,
   TimelineEvent,
   Worldview,
@@ -34,9 +39,18 @@ export interface RemovedPersonalEvent {
 
 export type WorldviewCommand =
   | { type: "rename-worldview"; name: string; locale: string }
+  | { type: "set-worldview-synopsis"; synopsis: string; locale: string }
+  | { type: "set-worldview-genre-tags"; genreTags: string[] }
+  | { type: "add-worldview-palette-color"; color: PaletteColor }
+  | { type: "remove-worldview-palette-color"; colorIndex: number }
+  | {
+      type: "restore-worldview-palette-color";
+      color: PaletteColor;
+      colorIndex: number;
+    }
+  | { type: "set-worldview-palette-color"; colorIndex: number; color: PaletteColor }
   | { type: "set-worldview-era"; era: string }
   | { type: "set-primary-locale"; primaryLocale: string }
-  | { type: "set-connectors"; connectors: string[] }
   | { type: "add-group"; group: Group }
   | { type: "remove-group"; groupId: string }
   | {
@@ -45,6 +59,26 @@ export type WorldviewCommand =
       groupIndex: number;
       memberCharacterIds: string[];
     }
+  | { type: "rename-group"; groupId: string; name: string; locale: string }
+  | { type: "set-group-description"; groupId: string; description: string }
+  | { type: "add-place"; place: Place }
+  | { type: "remove-place"; placeId: string }
+  | {
+      type: "restore-place";
+      place: Place;
+      placeIndex: number;
+      memberEventIds: string[];
+      childPlaceIds: string[];
+    }
+  | { type: "rename-place"; placeId: string; name: string; locale: string }
+  | { type: "set-place-kind"; placeId: string; kind: string }
+  | { type: "set-place-parent"; placeId: string; parentId: string | null }
+  | { type: "set-place-description"; placeId: string; description: string }
+  | { type: "add-glossary-term"; term: GlossaryTerm }
+  | { type: "remove-glossary-term"; termId: string }
+  | { type: "restore-glossary-term"; term: GlossaryTerm; termIndex: number }
+  | { type: "rename-glossary-term"; termId: string; name: string; locale: string }
+  | { type: "set-glossary-term-description"; termId: string; description: string }
   | { type: "add-field-definition"; fieldDefinition: FieldDefinition }
   | { type: "rename-field-definition"; fieldDefinitionId: string; label: string }
   | {
@@ -82,8 +116,14 @@ export type WorldviewCommand =
   | { type: "set-event-title"; eventId: string; title: string; locale: string }
   | { type: "set-event-when"; eventId: string; when: string }
   | { type: "set-event-place"; eventId: string; place: string }
+  | { type: "set-event-place-id"; eventId: string; placeId: string | null }
   | { type: "set-event-description"; eventId: string; description: string }
   | { type: "set-event-chapter"; eventId: string; chapterId: string | null }
+  | {
+      type: "set-event-owner";
+      eventId: string;
+      ownerCharacterId: string | null;
+    }
   | { type: "move-event"; eventId: string; targetIndex: number }
   | { type: "add-event-participant"; eventId: string; participant: EventParticipant }
   | { type: "remove-event-participant"; eventId: string; participantIndex: number }
@@ -118,7 +158,52 @@ export type WorldviewCommand =
     }
   | { type: "set-story"; characterId: string; story: string }
   | { type: "set-personality-tags"; characterId: string; personalityTags: string[] }
-  | { type: "set-character-image"; characterId: string; imageId: string | null }
+  | { type: "set-tags"; characterId: string; tags: string[] }
+  | { type: "add-character-image"; characterId: string; image: CharacterImage }
+  | { type: "remove-character-image"; characterId: string; imageId: string }
+  | {
+      type: "restore-character-image";
+      characterId: string;
+      image: CharacterImage;
+      imageIndex: number;
+      previousCoverImageId: string | null;
+    }
+  | { type: "set-cover-image"; characterId: string; coverImageId: string | null }
+  | {
+      type: "set-image-caption";
+      characterId: string;
+      imageId: string;
+      caption: string;
+    }
+  | { type: "add-quote"; characterId: string; quote: CharacterQuote }
+  | { type: "remove-quote"; characterId: string; quoteIndex: number }
+  | {
+      type: "restore-quote";
+      characterId: string;
+      quote: CharacterQuote;
+      quoteIndex: number;
+    }
+  | {
+      type: "set-quote";
+      characterId: string;
+      quoteIndex: number;
+      quote: CharacterQuote;
+    }
+  | { type: "add-palette-color"; characterId: string; color: PaletteColor }
+  | { type: "remove-palette-color"; characterId: string; colorIndex: number }
+  | {
+      type: "restore-palette-color";
+      characterId: string;
+      color: PaletteColor;
+      colorIndex: number;
+    }
+  | {
+      type: "set-palette-color";
+      characterId: string;
+      colorIndex: number;
+      color: PaletteColor;
+    }
+  | { type: "set-relation"; characterId: string; relationIndex: number; relation: Relation }
   | {
       type: "set-character-background-color";
       characterId: string;
@@ -222,6 +307,84 @@ function patchChapter(
   );
 }
 
+function requirePlace(state: WorldviewState, placeId: string): Place {
+  const place = state.worldview.places.find(
+    (existing) => existing.id === placeId,
+  );
+  if (!place) throw new Error(`존재하지 않는 장소: ${placeId}`);
+  return place;
+}
+
+function patchPlace(
+  state: WorldviewState,
+  placeId: string,
+  patch: Partial<Place>,
+  timestamp: number,
+): WorldviewState {
+  return patchWorldview(
+    state,
+    {
+      places: state.worldview.places.map((existing) =>
+        existing.id === placeId ? { ...existing, ...patch } : existing,
+      ),
+    },
+    timestamp,
+  );
+}
+
+function requireGroup(state: WorldviewState, groupId: string): Group {
+  const group = state.worldview.groups.find(
+    (existing) => existing.id === groupId,
+  );
+  if (!group) throw new Error(`존재하지 않는 그룹: ${groupId}`);
+  return group;
+}
+
+function patchGroup(
+  state: WorldviewState,
+  groupId: string,
+  patch: Partial<Group>,
+  timestamp: number,
+): WorldviewState {
+  return patchWorldview(
+    state,
+    {
+      groups: state.worldview.groups.map((existing) =>
+        existing.id === groupId ? { ...existing, ...patch } : existing,
+      ),
+    },
+    timestamp,
+  );
+}
+
+function requireGlossaryTerm(
+  state: WorldviewState,
+  termId: string,
+): GlossaryTerm {
+  const term = state.worldview.glossary.find(
+    (existing) => existing.id === termId,
+  );
+  if (!term) throw new Error(`존재하지 않는 용어: ${termId}`);
+  return term;
+}
+
+function patchGlossaryTerm(
+  state: WorldviewState,
+  termId: string,
+  patch: Partial<GlossaryTerm>,
+  timestamp: number,
+): WorldviewState {
+  return patchWorldview(
+    state,
+    {
+      glossary: state.worldview.glossary.map((existing) =>
+        existing.id === termId ? { ...existing, ...patch } : existing,
+      ),
+    },
+    timestamp,
+  );
+}
+
 function patchEvent(
   state: WorldviewState,
   eventId: string,
@@ -299,6 +462,136 @@ export function applyCommand(
       };
     }
 
+    case "set-worldview-synopsis": {
+      if (command.locale !== state.worldview.primaryLocale) {
+        return {
+          state: patchWorldview(
+            state,
+            {
+              synopsisTranslations: withLocaleValue(
+                state.worldview.synopsisTranslations,
+                command.locale,
+                command.synopsis,
+              ),
+            },
+            timestamp,
+          ),
+          inverse: {
+            type: "set-worldview-synopsis",
+            synopsis: state.worldview.synopsisTranslations[command.locale] ?? "",
+            locale: command.locale,
+          },
+          dirty: { worldview: true },
+        };
+      }
+      return {
+        state: patchWorldview(
+          state,
+          { synopsis: command.synopsis },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-worldview-synopsis",
+          synopsis: state.worldview.synopsis,
+          locale: command.locale,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-worldview-genre-tags":
+      return {
+        state: patchWorldview(
+          state,
+          { genreTags: command.genreTags },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-worldview-genre-tags",
+          genreTags: state.worldview.genreTags,
+        },
+        dirty: { worldview: true },
+      };
+
+    case "add-worldview-palette-color":
+      return {
+        state: patchWorldview(
+          state,
+          { palette: [...state.worldview.palette, command.color] },
+          timestamp,
+        ),
+        inverse: {
+          type: "remove-worldview-palette-color",
+          colorIndex: state.worldview.palette.length,
+        },
+        dirty: { worldview: true },
+      };
+
+    case "remove-worldview-palette-color": {
+      const color = state.worldview.palette[command.colorIndex];
+      if (!color) throw new Error(`존재하지 않는 색: ${command.colorIndex}`);
+      return {
+        state: patchWorldview(
+          state,
+          {
+            palette: [
+              ...state.worldview.palette.slice(0, command.colorIndex),
+              ...state.worldview.palette.slice(command.colorIndex + 1),
+            ],
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "restore-worldview-palette-color",
+          color,
+          colorIndex: command.colorIndex,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "restore-worldview-palette-color":
+      return {
+        state: patchWorldview(
+          state,
+          {
+            palette: insertAt(
+              state.worldview.palette,
+              command.colorIndex,
+              command.color,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "remove-worldview-palette-color",
+          colorIndex: command.colorIndex,
+        },
+        dirty: { worldview: true },
+      };
+
+    case "set-worldview-palette-color": {
+      const color = state.worldview.palette[command.colorIndex];
+      if (!color) throw new Error(`존재하지 않는 색: ${command.colorIndex}`);
+      return {
+        state: patchWorldview(
+          state,
+          {
+            palette: state.worldview.palette.map((existing, index) =>
+              index === command.colorIndex ? command.color : existing,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-worldview-palette-color",
+          colorIndex: command.colorIndex,
+          color,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
     case "set-primary-locale":
       return {
         state: patchWorldview(
@@ -317,13 +610,6 @@ export function applyCommand(
       return {
         state: patchWorldview(state, { era: command.era }, timestamp),
         inverse: { type: "set-worldview-era", era: state.worldview.era },
-        dirty: { worldview: true },
-      };
-
-    case "set-connectors":
-      return {
-        state: patchWorldview(state, { connectors: command.connectors }, timestamp),
-        inverse: { type: "set-connectors", connectors: state.worldview.connectors },
         dirty: { worldview: true },
       };
 
@@ -397,6 +683,363 @@ export function applyCommand(
         state: nextState,
         inverse: { type: "remove-group", groupId: command.group.id },
         dirty: { worldview: true, characterIds: command.memberCharacterIds },
+      };
+    }
+
+    case "rename-group": {
+      const group = requireGroup(state, command.groupId);
+      if (command.locale !== state.worldview.primaryLocale) {
+        return {
+          state: patchGroup(
+            state,
+            command.groupId,
+            {
+              nameTranslations: withLocaleValue(
+                group.nameTranslations,
+                command.locale,
+                command.name,
+              ),
+            },
+            timestamp,
+          ),
+          inverse: {
+            type: "rename-group",
+            groupId: command.groupId,
+            name: group.nameTranslations[command.locale] ?? "",
+            locale: command.locale,
+          },
+          dirty: { worldview: true },
+        };
+      }
+      return {
+        state: patchGroup(
+          state,
+          command.groupId,
+          { name: command.name },
+          timestamp,
+        ),
+        inverse: {
+          type: "rename-group",
+          groupId: command.groupId,
+          name: group.name,
+          locale: command.locale,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-group-description": {
+      const group = requireGroup(state, command.groupId);
+      return {
+        state: patchGroup(
+          state,
+          command.groupId,
+          { description: command.description },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-group-description",
+          groupId: command.groupId,
+          description: group.description,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "add-place":
+      return {
+        state: patchWorldview(
+          state,
+          { places: [...state.worldview.places, command.place] },
+          timestamp,
+        ),
+        inverse: { type: "remove-place", placeId: command.place.id },
+        dirty: { worldview: true },
+      };
+
+    case "remove-place": {
+      const placeIndex = state.worldview.places.findIndex(
+        (place) => place.id === command.placeId,
+      );
+      const place = state.worldview.places[placeIndex];
+      if (!place) throw new Error(`존재하지 않는 장소: ${command.placeId}`);
+      // 장소를 지워도 이를 가리키던 사건·하위 장소는 지우지 않고 참조만 끊는다(placeId·parentId → null).
+      const memberEventIds = state.worldview.events
+        .filter((event) => event.placeId === command.placeId)
+        .map((event) => event.id);
+      const childPlaceIds = state.worldview.places
+        .filter((existing) => existing.parentId === command.placeId)
+        .map((existing) => existing.id);
+      return {
+        state: patchWorldview(
+          state,
+          {
+            places: state.worldview.places
+              .filter((existing) => existing.id !== command.placeId)
+              .map((existing) =>
+                existing.parentId === command.placeId
+                  ? { ...existing, parentId: null }
+                  : existing,
+              ),
+            events: state.worldview.events.map((event) =>
+              event.placeId === command.placeId
+                ? { ...event, placeId: null }
+                : event,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "restore-place",
+          place,
+          placeIndex,
+          memberEventIds,
+          childPlaceIds,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "restore-place": {
+      const memberEventIds = new Set(command.memberEventIds);
+      const childPlaceIds = new Set(command.childPlaceIds);
+      return {
+        state: patchWorldview(
+          state,
+          {
+            places: insertAt(
+              state.worldview.places,
+              command.placeIndex,
+              command.place,
+            ).map((existing) =>
+              childPlaceIds.has(existing.id)
+                ? { ...existing, parentId: command.place.id }
+                : existing,
+            ),
+            events: state.worldview.events.map((event) =>
+              memberEventIds.has(event.id)
+                ? { ...event, placeId: command.place.id }
+                : event,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: { type: "remove-place", placeId: command.place.id },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "rename-place": {
+      const place = requirePlace(state, command.placeId);
+      if (command.locale !== state.worldview.primaryLocale) {
+        return {
+          state: patchPlace(
+            state,
+            command.placeId,
+            {
+              nameTranslations: withLocaleValue(
+                place.nameTranslations,
+                command.locale,
+                command.name,
+              ),
+            },
+            timestamp,
+          ),
+          inverse: {
+            type: "rename-place",
+            placeId: command.placeId,
+            name: place.nameTranslations[command.locale] ?? "",
+            locale: command.locale,
+          },
+          dirty: { worldview: true },
+        };
+      }
+      return {
+        state: patchPlace(
+          state,
+          command.placeId,
+          { name: command.name },
+          timestamp,
+        ),
+        inverse: {
+          type: "rename-place",
+          placeId: command.placeId,
+          name: place.name,
+          locale: command.locale,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-place-kind": {
+      const place = requirePlace(state, command.placeId);
+      return {
+        state: patchPlace(
+          state,
+          command.placeId,
+          { kind: command.kind },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-place-kind",
+          placeId: command.placeId,
+          kind: place.kind,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-place-parent": {
+      const place = requirePlace(state, command.placeId);
+      // 자기 자신·후손을 부모로 지정해 순환이 생기지 않도록 막는다.
+      let cursor: string | null = command.parentId;
+      while (cursor !== null) {
+        if (cursor === command.placeId)
+          throw new Error("장소 계층에 순환을 만들 수 없습니다.");
+        cursor =
+          state.worldview.places.find((existing) => existing.id === cursor)
+            ?.parentId ?? null;
+      }
+      return {
+        state: patchPlace(
+          state,
+          command.placeId,
+          { parentId: command.parentId },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-place-parent",
+          placeId: command.placeId,
+          parentId: place.parentId,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-place-description": {
+      const place = requirePlace(state, command.placeId);
+      return {
+        state: patchPlace(
+          state,
+          command.placeId,
+          { description: command.description },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-place-description",
+          placeId: command.placeId,
+          description: place.description,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "add-glossary-term":
+      return {
+        state: patchWorldview(
+          state,
+          { glossary: [...state.worldview.glossary, command.term] },
+          timestamp,
+        ),
+        inverse: { type: "remove-glossary-term", termId: command.term.id },
+        dirty: { worldview: true },
+      };
+
+    case "remove-glossary-term": {
+      const termIndex = state.worldview.glossary.findIndex(
+        (term) => term.id === command.termId,
+      );
+      const term = state.worldview.glossary[termIndex];
+      if (!term) throw new Error(`존재하지 않는 용어: ${command.termId}`);
+      return {
+        state: patchWorldview(
+          state,
+          {
+            glossary: state.worldview.glossary.filter(
+              (existing) => existing.id !== command.termId,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: { type: "restore-glossary-term", term, termIndex },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "restore-glossary-term":
+      return {
+        state: patchWorldview(
+          state,
+          {
+            glossary: insertAt(
+              state.worldview.glossary,
+              command.termIndex,
+              command.term,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: { type: "remove-glossary-term", termId: command.term.id },
+        dirty: { worldview: true },
+      };
+
+    case "rename-glossary-term": {
+      const term = requireGlossaryTerm(state, command.termId);
+      if (command.locale !== state.worldview.primaryLocale) {
+        return {
+          state: patchGlossaryTerm(
+            state,
+            command.termId,
+            {
+              nameTranslations: withLocaleValue(
+                term.nameTranslations,
+                command.locale,
+                command.name,
+              ),
+            },
+            timestamp,
+          ),
+          inverse: {
+            type: "rename-glossary-term",
+            termId: command.termId,
+            name: term.nameTranslations[command.locale] ?? "",
+            locale: command.locale,
+          },
+          dirty: { worldview: true },
+        };
+      }
+      return {
+        state: patchGlossaryTerm(
+          state,
+          command.termId,
+          { name: command.name },
+          timestamp,
+        ),
+        inverse: {
+          type: "rename-glossary-term",
+          termId: command.termId,
+          name: term.name,
+          locale: command.locale,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-glossary-term-description": {
+      const term = requireGlossaryTerm(state, command.termId);
+      return {
+        state: patchGlossaryTerm(
+          state,
+          command.termId,
+          { description: command.description },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-glossary-term-description",
+          termId: command.termId,
+          description: term.description,
+        },
+        dirty: { worldview: true },
       };
     }
 
@@ -888,6 +1531,24 @@ export function applyCommand(
       };
     }
 
+    case "set-event-place-id": {
+      const event = requireEvent(state, command.eventId);
+      return {
+        state: patchEvent(
+          state,
+          command.eventId,
+          { placeId: command.placeId },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-event-place-id",
+          eventId: command.eventId,
+          placeId: event.placeId,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
     case "set-event-description": {
       const event = requireEvent(state, command.eventId);
       return {
@@ -919,6 +1580,24 @@ export function applyCommand(
           type: "set-event-chapter",
           eventId: command.eventId,
           chapterId: event.chapterId,
+        },
+        dirty: { worldview: true },
+      };
+    }
+
+    case "set-event-owner": {
+      const event = requireEvent(state, command.eventId);
+      return {
+        state: patchEvent(
+          state,
+          command.eventId,
+          { ownerCharacterId: command.ownerCharacterId },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-event-owner",
+          eventId: command.eventId,
+          ownerCharacterId: event.ownerCharacterId,
         },
         dirty: { worldview: true },
       };
@@ -1358,19 +2037,356 @@ export function applyCommand(
       };
     }
 
-    case "set-character-image": {
+    case "set-tags": {
       const character = requireCharacter(state, command.characterId);
       return {
         state: patchCharacter(
           state,
           command.characterId,
-          { imageId: command.imageId },
+          { tags: command.tags },
           timestamp,
         ),
         inverse: {
-          type: "set-character-image",
+          type: "set-tags",
           characterId: command.characterId,
-          imageId: character.imageId,
+          tags: character.tags,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "add-character-image": {
+      const character = requireCharacter(state, command.characterId);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          { images: [...character.images, command.image] },
+          timestamp,
+        ),
+        inverse: {
+          type: "remove-character-image",
+          characterId: command.characterId,
+          imageId: command.image.id,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "remove-character-image": {
+      const character = requireCharacter(state, command.characterId);
+      const imageIndex = character.images.findIndex(
+        (image) => image.id === command.imageId,
+      );
+      const image = character.images[imageIndex];
+      if (!image) throw new Error(`존재하지 않는 이미지: ${command.imageId}`);
+      const wasCover = character.coverImageId === command.imageId;
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          {
+            images: character.images.filter(
+              (existing) => existing.id !== command.imageId,
+            ),
+            coverImageId: wasCover ? null : character.coverImageId,
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "restore-character-image",
+          characterId: command.characterId,
+          image,
+          imageIndex,
+          previousCoverImageId: character.coverImageId,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "restore-character-image": {
+      const character = requireCharacter(state, command.characterId);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          {
+            images: insertAt(character.images, command.imageIndex, command.image),
+            coverImageId: command.previousCoverImageId,
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "remove-character-image",
+          characterId: command.characterId,
+          imageId: command.image.id,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "set-cover-image": {
+      const character = requireCharacter(state, command.characterId);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          { coverImageId: command.coverImageId },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-cover-image",
+          characterId: command.characterId,
+          coverImageId: character.coverImageId,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "set-image-caption": {
+      const character = requireCharacter(state, command.characterId);
+      const image = character.images.find(
+        (existing) => existing.id === command.imageId,
+      );
+      if (!image) throw new Error(`존재하지 않는 이미지: ${command.imageId}`);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          {
+            images: character.images.map((existing) =>
+              existing.id === command.imageId
+                ? { ...existing, caption: command.caption }
+                : existing,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-image-caption",
+          characterId: command.characterId,
+          imageId: command.imageId,
+          caption: image.caption,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "add-quote": {
+      const character = requireCharacter(state, command.characterId);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          { quotes: [...character.quotes, command.quote] },
+          timestamp,
+        ),
+        inverse: {
+          type: "remove-quote",
+          characterId: command.characterId,
+          quoteIndex: character.quotes.length,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "remove-quote": {
+      const character = requireCharacter(state, command.characterId);
+      const quote = character.quotes[command.quoteIndex];
+      if (!quote) throw new Error(`존재하지 않는 대사: ${command.quoteIndex}`);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          {
+            quotes: [
+              ...character.quotes.slice(0, command.quoteIndex),
+              ...character.quotes.slice(command.quoteIndex + 1),
+            ],
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "restore-quote",
+          characterId: command.characterId,
+          quote,
+          quoteIndex: command.quoteIndex,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "restore-quote": {
+      const character = requireCharacter(state, command.characterId);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          { quotes: insertAt(character.quotes, command.quoteIndex, command.quote) },
+          timestamp,
+        ),
+        inverse: {
+          type: "remove-quote",
+          characterId: command.characterId,
+          quoteIndex: command.quoteIndex,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "set-quote": {
+      const character = requireCharacter(state, command.characterId);
+      const quote = character.quotes[command.quoteIndex];
+      if (!quote) throw new Error(`존재하지 않는 대사: ${command.quoteIndex}`);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          {
+            quotes: character.quotes.map((existing, index) =>
+              index === command.quoteIndex ? command.quote : existing,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-quote",
+          characterId: command.characterId,
+          quoteIndex: command.quoteIndex,
+          quote,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "add-palette-color": {
+      const character = requireCharacter(state, command.characterId);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          {
+            appearance: {
+              ...character.appearance,
+              palette: [...character.appearance.palette, command.color],
+            },
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "remove-palette-color",
+          characterId: command.characterId,
+          colorIndex: character.appearance.palette.length,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "remove-palette-color": {
+      const character = requireCharacter(state, command.characterId);
+      const color = character.appearance.palette[command.colorIndex];
+      if (!color) throw new Error(`존재하지 않는 색: ${command.colorIndex}`);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          {
+            appearance: {
+              ...character.appearance,
+              palette: [
+                ...character.appearance.palette.slice(0, command.colorIndex),
+                ...character.appearance.palette.slice(command.colorIndex + 1),
+              ],
+            },
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "restore-palette-color",
+          characterId: command.characterId,
+          color,
+          colorIndex: command.colorIndex,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "restore-palette-color": {
+      const character = requireCharacter(state, command.characterId);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          {
+            appearance: {
+              ...character.appearance,
+              palette: insertAt(
+                character.appearance.palette,
+                command.colorIndex,
+                command.color,
+              ),
+            },
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "remove-palette-color",
+          characterId: command.characterId,
+          colorIndex: command.colorIndex,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "set-palette-color": {
+      const character = requireCharacter(state, command.characterId);
+      const color = character.appearance.palette[command.colorIndex];
+      if (!color) throw new Error(`존재하지 않는 색: ${command.colorIndex}`);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          {
+            appearance: {
+              ...character.appearance,
+              palette: character.appearance.palette.map((existing, index) =>
+                index === command.colorIndex ? command.color : existing,
+              ),
+            },
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-palette-color",
+          characterId: command.characterId,
+          colorIndex: command.colorIndex,
+          color,
+        },
+        dirty: { characterIds: [command.characterId] },
+      };
+    }
+
+    case "set-relation": {
+      const character = requireCharacter(state, command.characterId);
+      const relation = character.relations[command.relationIndex];
+      if (!relation)
+        throw new Error(`존재하지 않는 관계: ${command.relationIndex}`);
+      return {
+        state: patchCharacter(
+          state,
+          command.characterId,
+          {
+            relations: character.relations.map((existing, index) =>
+              index === command.relationIndex ? command.relation : existing,
+            ),
+          },
+          timestamp,
+        ),
+        inverse: {
+          type: "set-relation",
+          characterId: command.characterId,
+          relationIndex: command.relationIndex,
+          relation,
         },
         dirty: { characterIds: [command.characterId] },
       };
@@ -1382,7 +2398,12 @@ export function applyCommand(
         state: patchCharacter(
           state,
           command.characterId,
-          { appearance: { backgroundColor: command.backgroundColor } },
+          {
+            appearance: {
+              ...character.appearance,
+              backgroundColor: command.backgroundColor,
+            },
+          },
           timestamp,
         ),
         inverse: {

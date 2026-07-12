@@ -3,6 +3,7 @@ export {
   DEFAULT_LOCALE,
   LOCALE_STORAGE_KEY,
   LOCALE_NAMES,
+  RELATION_CONNECTOR,
   isLocale,
   detectPreferredLocale,
   type Locale,

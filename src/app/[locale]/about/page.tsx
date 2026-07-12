@@ -15,7 +15,7 @@ export default async function AboutPage({
   const paragraphs = [t("about.p1"), t("about.p2"), t("about.p3")];
 
   return (
-    <article className="mx-auto max-w-xl px-5 py-14">
+    <article className="mx-auto max-w-page px-5 py-14">
       <h1 className="text-2xl font-extrabold tracking-tight">
         {t("about.title")}
       </h1>

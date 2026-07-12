@@ -58,10 +58,7 @@ export default function LibraryPage() {
   const createAndOpen = async () => {
     const worldview = await createAndSaveWorldview(
       t("library.newWorldviewName"),
-      {
-        fieldLabels: seed.fieldLabels,
-        connectors: seed.connectors,
-      },
+      { fieldLabels: seed.fieldLabels },
       locale,
     );
     router.push(worldHref(locale, worldview.id));
@@ -75,7 +72,7 @@ export default function LibraryPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-5 pb-24 pt-10 sm:pt-14">
+    <div className="mx-auto max-w-page px-5 pb-24 pt-10 sm:pt-14">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-extrabold tracking-tight">
           {t("library.title")}

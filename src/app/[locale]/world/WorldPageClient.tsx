@@ -25,6 +25,7 @@ import {
 } from "@/core/model";
 import {
   hasActiveFilters,
+  selectAllTags,
   selectVisibleCharacters,
   type ViewState,
 } from "@/core/selectors";
@@ -82,6 +83,7 @@ export function WorldPageClient() {
 
   const visibleCharacters = selectVisibleCharacters(characters, viewState, locale);
   const inTrash = viewState.view === "trash";
+  const allTags = selectAllTags(characters);
 
   const addCharacter = () => {
     const character = createCharacter(worldview.id);
@@ -101,7 +103,7 @@ export function WorldPageClient() {
     );
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pb-28 pt-6 sm:px-6">
+    <div className="mx-auto max-w-page px-4 pb-28 pt-6 sm:px-6">
       <div className="flex items-center gap-2">
         <Link
           href={libraryHref(locale)}
@@ -192,6 +194,24 @@ export function WorldPageClient() {
         </button>
       </div>
 
+      {!inTrash && allTags.length > 0 && (
+        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              className={chipClassName(viewState.tag === tag)}
+              onClick={() =>
+                updateViewState({
+                  tag: viewState.tag === tag ? null : tag,
+                })
+              }
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+
       {visibleCharacters.length === 0 && inTrash ? (
         <p className="py-20 text-center text-sm text-muted">
           {t("world.trashEmpty")}
@@ -203,7 +223,12 @@ export function WorldPageClient() {
             <Button
               size="sm"
               onClick={() =>
-                updateViewState({ view: "all", groupId: null, query: "" })
+                updateViewState({
+                  view: "all",
+                  groupId: null,
+                  tag: null,
+                  query: "",
+                })
               }
             >
               {t("world.resetFilters")}

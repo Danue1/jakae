@@ -9,7 +9,6 @@ import {
 
 const SEED_DEFAULTS = {
   fieldLabels: ["나이", "종족", "성별", "신장", "체중"],
-  connectors: ["의", "에게", "를"],
 };
 
 function buildState(): {
@@ -21,9 +20,7 @@ function buildState(): {
   const worldview = createWorldview("어쩌구 우주", SEED_DEFAULTS, "ko", "2020", 1000);
   const gaga = createCharacter(worldview.id, "가가", 1000);
   const cat = createCharacter(worldview.id, "고영희", 1000);
-  gaga.relations = [
-    { targetCharacterId: cat.id, connector: "의", label: "집사" },
-  ];
+  gaga.relations = [{ targetCharacterId: cat.id, label: "집사" }];
   const ageField = worldview.fieldDefinitions[0];
   if (!ageField) throw new Error("시드 필드 누락");
   gaga.fieldValues[ageField.id] = "15";
@@ -53,6 +50,149 @@ describe("applyCommand", () => {
 
     const undone = applyCommand(applied.state, applied.inverse, 3000);
     expect(undone.state.characters[0]?.fieldValues[ageFieldId]).toBe("15");
+  });
+
+  it("세계관 개요는 기본 언어와 번역 슬롯을 나눠 기록하고 역커맨드로 복원된다", () => {
+    const { state } = buildState();
+    const applied = applyCommand(
+      state,
+      { type: "set-worldview-synopsis", synopsis: "우주 표류기", locale: "ko" },
+      2000,
+    );
+    expect(applied.state.worldview.synopsis).toBe("우주 표류기");
+
+    const translated = applyCommand(
+      applied.state,
+      { type: "set-worldview-synopsis", synopsis: "Space drift", locale: "en" },
+      2500,
+    );
+    expect(translated.state.worldview.synopsis).toBe("우주 표류기");
+    expect(translated.state.worldview.synopsisTranslations).toEqual({
+      en: "Space drift",
+    });
+
+    const undone = applyCommand(applied.state, applied.inverse, 3000);
+    expect(undone.state.worldview.synopsis).toBe("");
+  });
+
+  it("세계관 장르 태그는 역커맨드로 이전 목록이 복원된다", () => {
+    const { state } = buildState();
+    const applied = applyCommand(
+      state,
+      { type: "set-worldview-genre-tags", genreTags: ["SF", "일상"] },
+      2000,
+    );
+    expect(applied.state.worldview.genreTags).toEqual(["SF", "일상"]);
+
+    const undone = applyCommand(applied.state, applied.inverse, 3000);
+    expect(undone.state.worldview.genreTags).toEqual([]);
+  });
+
+  it("세계관 팔레트 색 추가는 역커맨드로 제거된다", () => {
+    const { state } = buildState();
+    const color = { id: "c1", role: "하늘", color: "#7ec8e3" };
+    const applied = applyCommand(
+      state,
+      { type: "add-worldview-palette-color", color },
+      2000,
+    );
+    expect(applied.state.worldview.palette).toEqual([color]);
+
+    const undone = applyCommand(applied.state, applied.inverse, 3000);
+    expect(undone.state.worldview.palette).toEqual([]);
+  });
+
+  it("장소 삭제는 이를 가리키던 사건의 placeId와 하위 장소의 parentId를 끊고, 역커맨드로 복원된다", () => {
+    const { state } = buildState();
+    const region = { id: "p-region", name: "행성", nameTranslations: {}, kind: "행성", parentId: null, description: "" };
+    const city = { id: "p-city", name: "도시", nameTranslations: {}, kind: "도시", parentId: "p-region", description: "" };
+    const event = {
+      id: "e1",
+      chapterId: null,
+      ownerCharacterId: null,
+      title: "사건",
+      titleTranslations: {},
+      when: "",
+      place: "",
+      placeId: "p-region",
+      description: "",
+      participants: [],
+    };
+    const seeded: WorldviewState = {
+      worldview: {
+        ...state.worldview,
+        places: [region, city],
+        events: [event],
+      },
+      characters: state.characters,
+    };
+
+    const removed = applyCommand(
+      seeded,
+      { type: "remove-place", placeId: "p-region" },
+      2000,
+    );
+    expect(removed.state.worldview.places.map((place) => place.id)).toEqual([
+      "p-city",
+    ]);
+    expect(removed.state.worldview.places[0]?.parentId).toBeNull();
+    expect(removed.state.worldview.events[0]?.placeId).toBeNull();
+
+    const restored = applyCommand(removed.state, removed.inverse, 3000);
+    expect(restored.state.worldview.places.map((place) => place.id)).toEqual([
+      "p-region",
+      "p-city",
+    ]);
+    expect(restored.state.worldview.places[1]?.parentId).toBe("p-region");
+    expect(restored.state.worldview.events[0]?.placeId).toBe("p-region");
+  });
+
+  it("장소 부모 지정은 순환을 거부한다", () => {
+    const { state } = buildState();
+    const parent = { id: "pp", name: "상위", nameTranslations: {}, kind: "", parentId: null, description: "" };
+    const child = { id: "cc", name: "하위", nameTranslations: {}, kind: "", parentId: "pp", description: "" };
+    const seeded: WorldviewState = {
+      worldview: { ...state.worldview, places: [parent, child] },
+      characters: state.characters,
+    };
+    expect(() =>
+      applyCommand(
+        seeded,
+        { type: "set-place-parent", placeId: "pp", parentId: "cc" },
+        2000,
+      ),
+    ).toThrow();
+  });
+
+  it("조직으로 승격된 그룹은 다국어명과 설명을 기록하고 역커맨드로 복원된다", () => {
+    const { state } = buildState();
+    const added = applyCommand(
+      state,
+      { type: "add-group", group: { id: "g1", name: "크루", nameTranslations: {}, description: "" } },
+      2000,
+    );
+    const described = applyCommand(
+      added.state,
+      { type: "set-group-description", groupId: "g1", description: "우주선 승무원" },
+      2500,
+    );
+    expect(described.state.worldview.groups[0]?.description).toBe("우주선 승무원");
+
+    const undone = applyCommand(described.state, described.inverse, 3000);
+    expect(undone.state.worldview.groups[0]?.description).toBe("");
+  });
+
+  it("설정 용어는 추가·삭제가 역커맨드로 왕복된다", () => {
+    const { state } = buildState();
+    const added = applyCommand(
+      state,
+      { type: "add-glossary-term", term: { id: "t1", name: "워프", nameTranslations: {}, description: "초광속 항행" } },
+      2000,
+    );
+    expect(added.state.worldview.glossary).toHaveLength(1);
+
+    const removed = applyCommand(added.state, added.inverse, 3000);
+    expect(removed.state.worldview.glossary).toHaveLength(0);
   });
 
   it("기본 언어가 아닌 이름 편집은 언어별 이름에 기록되고, 표시가 폴백된다", () => {
@@ -146,7 +286,7 @@ describe("applyCommand", () => {
     expect(
       undone.state.characters.find((character) => character.id === gagaId)
         ?.relations,
-    ).toEqual([{ targetCharacterId: catId, connector: "의", label: "집사" }]);
+    ).toEqual([{ targetCharacterId: catId, label: "집사" }]);
   });
 
   it("필드 삭제는 전 캐릭터의 값을 정리하고, 역커맨드가 순서와 값을 복원한다", () => {
@@ -184,7 +324,7 @@ describe("applyCommand", () => {
     expect(undone.state.worldview.fieldDefinitions[0]?.id).toBe(ageFieldId);
   });
 
-  it("배경색 지정과 연결어 설정이 왕복한다", () => {
+  it("배경색 지정이 왕복한다", () => {
     const { state, gagaId } = buildState();
     const colored = applyCommand(
       state,
@@ -200,23 +340,6 @@ describe("applyCommand", () => {
     );
     const colorUndone = applyCommand(colored.state, colored.inverse, 3000);
     expect(colorUndone.state.characters[0]?.appearance.backgroundColor).toBeNull();
-
-    const connectorsSet = applyCommand(
-      state,
-      { type: "set-connectors", connectors: ["의", "와"] },
-      2000,
-    );
-    expect(connectorsSet.state.worldview.connectors).toEqual(["의", "와"]);
-    const connectorsUndone = applyCommand(
-      connectorsSet.state,
-      connectorsSet.inverse,
-      3000,
-    );
-    expect(connectorsUndone.state.worldview.connectors).toEqual([
-      "의",
-      "에게",
-      "를",
-    ]);
   });
 
   it("휴지통 이동/복원이 왕복한다", () => {

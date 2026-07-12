@@ -21,6 +21,7 @@ export function worldHref(
     if (viewState.view !== defaultViewState.view)
       searchParams.set("view", viewState.view);
     if (viewState.groupId !== null) searchParams.set("group", viewState.groupId);
+    if (viewState.tag !== null) searchParams.set("tag", viewState.tag);
     if (viewState.query) searchParams.set("q", viewState.query);
   }
   return `/${locale}/world/?${searchParams.toString()}`;
@@ -69,6 +70,7 @@ export function parseViewState(searchParams: SearchParamsReader): ViewState {
       ? (view as ViewName)
       : defaultViewState.view,
     groupId: searchParams.get("group"),
+    tag: searchParams.get("tag"),
     query: searchParams.get("q") ?? "",
   };
 }

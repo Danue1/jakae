@@ -2,7 +2,13 @@ import type {
   Chapter,
   Character,
   CharacterAppearance,
+  CharacterImage,
+  CharacterQuote,
   FieldDefinition,
+  GlossaryTerm,
+  Group,
+  PaletteColor,
+  Place,
   Relation,
   TimelineEvent,
   Worldview,
@@ -14,19 +20,37 @@ import type {
 export interface LegacyWorldviewRecord
   extends Omit<
     Worldview,
-    | "connectors"
     | "fieldDefinitions"
     | "primaryLocale"
     | "nameTranslations"
+    | "synopsis"
+    | "synopsisTranslations"
+    | "genreTags"
+    | "palette"
+    | "groups"
+    | "places"
+    | "glossary"
     | "chapters"
     | "events"
   > {
   primaryLocale?: string;
   nameTranslations?: Record<string, string>;
+  synopsis?: string;
+  synopsisTranslations?: Record<string, string>;
+  genreTags?: string[];
+  palette?: PaletteColor[];
+  // v1·v2 잔존 필드 — 읽되 무시한다(연결어는 언어 고정값으로 대체됨).
   connectors?: string[];
   particles?: string[];
+  // 그룹은 조직으로 승격되며 다국어명·설명이 새로 붙는다(구 데이터엔 없음).
+  groups: (Omit<Group, "nameTranslations" | "description"> & {
+    nameTranslations?: Record<string, string>;
+    description?: string;
+  })[];
+  places?: Place[];
+  glossary?: GlossaryTerm[];
   chapters?: Chapter[];
-  events?: TimelineEvent[];
+  events?: (Omit<TimelineEvent, "placeId"> & { placeId?: string | null })[];
   fieldDefinitions: (Omit<FieldDefinition, "localized"> & {
     localized?: boolean;
     builtIn?: boolean;
@@ -37,12 +61,26 @@ export interface LegacyWorldviewRecord
 export interface LegacyCharacterRecord
   extends Omit<
     Character,
-    "appearance" | "relations" | "nameTranslations" | "fieldValueTranslations"
+    | "appearance"
+    | "relations"
+    | "nameTranslations"
+    | "fieldValueTranslations"
+    | "images"
+    | "coverImageId"
+    | "quotes"
+    | "tags"
   > {
+  tags?: string[];
   nameTranslations?: Record<string, string>;
   fieldValueTranslations?: Record<string, Record<string, string>>;
-  appearance?: CharacterAppearance;
-  relations: (Omit<Relation, "connector"> & {
+  appearance?: Omit<CharacterAppearance, "palette"> & {
+    palette?: PaletteColor[];
+  };
+  imageId?: string | null;
+  images?: CharacterImage[];
+  coverImageId?: string | null;
+  quotes?: CharacterQuote[];
+  relations: (Relation & {
     connector?: string;
     particle?: string;
   })[];
@@ -55,6 +93,10 @@ export function normalizeWorldviewRecord(
     id: record.id,
     name: record.name,
     nameTranslations: record.nameTranslations ?? {},
+    synopsis: record.synopsis ?? "",
+    synopsisTranslations: record.synopsisTranslations ?? {},
+    genreTags: record.genreTags ?? [],
+    palette: record.palette ?? [],
     era: record.era,
     primaryLocale: record.primaryLocale ?? "ko",
     fieldDefinitions: record.fieldDefinitions.map((fieldDefinition) => ({
@@ -62,8 +104,14 @@ export function normalizeWorldviewRecord(
       label: fieldDefinition.label,
       localized: fieldDefinition.localized ?? false,
     })),
-    connectors: record.connectors ?? record.particles ?? [],
-    groups: record.groups,
+    groups: record.groups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      nameTranslations: group.nameTranslations ?? {},
+      description: group.description ?? "",
+    })),
+    places: record.places ?? [],
+    glossary: record.glossary ?? [],
     chapters: record.chapters ?? [],
     events: (record.events ?? []).map((event) => ({
       id: event.id,
@@ -73,6 +121,7 @@ export function normalizeWorldviewRecord(
       titleTranslations: event.titleTranslations ?? {},
       when: event.when ?? "",
       place: event.place ?? "",
+      placeId: event.placeId ?? null,
       description: event.description ?? "",
       participants: (event.participants ?? []).map((participant) => ({
         characterId: participant.characterId,
@@ -92,15 +141,25 @@ export function normalizeCharacterRecord(
     worldviewId: record.worldviewId,
     name: record.name,
     nameTranslations: record.nameTranslations ?? {},
-    imageId: record.imageId,
-    appearance: record.appearance ?? { backgroundColor: null },
+    // 구 단일 imageId → 이미지 목록 1장. 항목 id는 blobId를 재사용해 읽을 때마다 안정적으로 둔다.
+    images:
+      record.images ??
+      (record.imageId
+        ? [{ id: record.imageId, blobId: record.imageId, caption: "" }]
+        : []),
+    coverImageId: record.coverImageId ?? record.imageId ?? null,
+    appearance: {
+      backgroundColor: record.appearance?.backgroundColor ?? null,
+      palette: record.appearance?.palette ?? [],
+    },
     fieldValues: record.fieldValues,
     fieldValueTranslations: record.fieldValueTranslations ?? {},
     personalityTags: record.personalityTags,
+    tags: record.tags ?? [],
+    quotes: record.quotes ?? [],
     story: record.story,
     relations: record.relations.map((relation) => ({
       targetCharacterId: relation.targetCharacterId,
-      connector: relation.connector ?? relation.particle ?? "",
       label: relation.label,
     })),
     groupIds: record.groupIds,

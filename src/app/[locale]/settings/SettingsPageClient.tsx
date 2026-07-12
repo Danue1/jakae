@@ -27,7 +27,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { worldviewDisplayName, type FieldDefinition } from "@/core/model";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { PaletteEditor } from "@/components/PaletteEditor";
+import {
+  createGlossaryTerm,
+  createGroup,
+  createPlace,
+  placeDisplayName,
+  worldviewDisplayName,
+  type FieldDefinition,
+} from "@/core/model";
 import { guardedKeyDownHandler } from "@/react/inputGuards";
 import { worldHref } from "@/react/links";
 import { useLocale, useTranslations } from "next-intl";
@@ -51,8 +61,11 @@ export function SettingsPageClient() {
   const worldview = useWorldviewStore((state) => state.worldview);
   const [newFieldLabel, setNewFieldLabel] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
-  const [newConnector, setNewConnector] = useState("");
+  const [newGenre, setNewGenre] = useState("");
+  const [newPlaceName, setNewPlaceName] = useState("");
+  const [newGlossaryName, setNewGlossaryName] = useState("");
   const [nameLocale, setNameLocale] = useState<Locale>(locale);
+  const [synopsisLocale, setSynopsisLocale] = useState<Locale>(locale);
   const [pendingDeleteField, setPendingDeleteField] =
     useState<FieldDefinition | null>(null);
 
@@ -77,22 +90,42 @@ export function SettingsPageClient() {
     if (!name) return;
     dispatchCommand({
       type: "add-group",
-      group: { id: crypto.randomUUID(), name },
+      group: createGroup(name),
     });
   };
 
-  const addConnector = () => {
-    const connector = newConnector.trim();
-    setNewConnector("");
-    if (!connector || worldview.connectors.includes(connector)) return;
+  const addPlace = () => {
+    const name = newPlaceName.trim();
+    setNewPlaceName("");
+    if (!name) return;
+    dispatchCommand({ type: "add-place", place: createPlace(name) });
+  };
+
+  const addGlossaryTerm = () => {
+    const name = newGlossaryName.trim();
+    setNewGlossaryName("");
+    if (!name) return;
+    dispatchCommand({ type: "add-glossary-term", term: createGlossaryTerm(name) });
+  };
+
+  const addGenre = () => {
+    const tag = newGenre.trim().replace(/,+$/, "");
+    setNewGenre("");
+    if (!tag || worldview.genreTags.includes(tag)) return;
     dispatchCommand({
-      type: "set-connectors",
-      connectors: [...worldview.connectors, connector],
+      type: "set-worldview-genre-tags",
+      genreTags: [...worldview.genreTags, tag],
     });
   };
+
+  const removeGenre = (tag: string) =>
+    dispatchCommand({
+      type: "set-worldview-genre-tags",
+      genreTags: worldview.genreTags.filter((existing) => existing !== tag),
+    });
 
   return (
-    <div className="mx-auto max-w-xl px-4 pb-24 pt-6 sm:px-6">
+    <div className="mx-auto max-w-page px-4 pb-24 pt-6 sm:px-6">
       <div className="flex items-center gap-2">
         <Link
           href={worldHref(locale, worldview.id)}
@@ -144,6 +177,42 @@ export function SettingsPageClient() {
               availableLocale === worldview.primaryLocale
                 ? Boolean(worldview.name)
                 : Boolean(worldview.nameTranslations[availableLocale]),
+            )}
+            primaryLocale={worldview.primaryLocale}
+            primaryLabel={t("settings.primaryLocaleLabel")}
+          />
+        </div>
+        <div className="flex items-start gap-2 border-b border-line py-1.5">
+          <span className="w-24 shrink-0 pt-2 text-sm text-muted">
+            {t("settings.synopsisLabel")}
+          </span>
+          <Textarea
+            rows={3}
+            placeholder={
+              synopsisLocale !== worldview.primaryLocale
+                ? worldview.synopsis || "-"
+                : "-"
+            }
+            value={
+              synopsisLocale !== worldview.primaryLocale
+                ? (worldview.synopsisTranslations[synopsisLocale] ?? "")
+                : worldview.synopsis
+            }
+            onChange={(event) =>
+              dispatchCommand({
+                type: "set-worldview-synopsis",
+                synopsis: event.target.value,
+                locale: synopsisLocale,
+              })
+            }
+          />
+          <LocaleTabs
+            value={synopsisLocale}
+            onChange={setSynopsisLocale}
+            filledLocales={LOCALES.filter((availableLocale) =>
+              availableLocale === worldview.primaryLocale
+                ? Boolean(worldview.synopsis)
+                : Boolean(worldview.synopsisTranslations[availableLocale]),
             )}
             primaryLocale={worldview.primaryLocale}
             primaryLabel={t("settings.primaryLocaleLabel")}
@@ -281,24 +350,85 @@ export function SettingsPageClient() {
       </section>
 
       <section className="mt-9">
-        <SectionCaption>{t("settings.groupsTitle")}</SectionCaption>
+        <SectionCaption>{t("settings.genreTitle")}</SectionCaption>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {worldview.groups.map((group) => (
-            <span
-              key={group.id}
-              className="flex items-center gap-1.5 rounded-full bg-hover px-3.5 py-1.5 text-sm"
-            >
-              {group.name}
+          {worldview.genreTags.map((tag) => (
+            <Badge key={tag} className="py-1 text-sm">
+              {tag}
               <button
-                aria-label={`${group.name} ✕`}
-                className="text-muted hover:text-danger"
+                aria-label={`${tag} · ${t("common.delete")}`}
+                className="-my-2 -mr-2 p-2 opacity-60 hover:opacity-100"
+                onClick={() => removeGenre(tag)}
+              >
+                <X size={13} aria-hidden="true" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+        <div className="mt-2.5 flex items-center gap-1.5">
+          <Input
+            className="bg-hover"
+            placeholder={t("settings.genrePlaceholder")}
+            value={newGenre}
+            onChange={(event) => setNewGenre(event.target.value)}
+            onKeyDown={guardedKeyDownHandler({ Enter: addGenre })}
+          />
+          <Button size="sm" onClick={addGenre}>
+            <Plus size={15} aria-hidden="true" />
+            {t("settings.addGenre")}
+          </Button>
+        </div>
+      </section>
+
+      <section className="mt-9">
+        <SectionCaption>{t("settings.paletteTitle")}</SectionCaption>
+        <div className="mt-2">
+          <PaletteEditor target={{ kind: "worldview", worldview }} />
+        </div>
+      </section>
+
+      <section className="mt-9">
+        <SectionCaption>{t("settings.groupsTitle")}</SectionCaption>
+        <div className="mt-2">
+          {worldview.groups.map((group) => (
+            <div
+              key={group.id}
+              className="flex items-center gap-1.5 border-b border-line py-1.5"
+            >
+              <Input
+                className="w-40 shrink-0"
+                value={group.name}
+                placeholder={t("settings.groupPlaceholder")}
+                onChange={(event) =>
+                  dispatchCommand({
+                    type: "rename-group",
+                    groupId: group.id,
+                    name: event.target.value,
+                    locale: worldview.primaryLocale,
+                  })
+                }
+              />
+              <Input
+                value={group.description}
+                placeholder={t("settings.orgDescriptionPlaceholder")}
+                onChange={(event) =>
+                  dispatchCommand({
+                    type: "set-group-description",
+                    groupId: group.id,
+                    description: event.target.value,
+                  })
+                }
+              />
+              <Button
+                variant="danger"
+                size="sm"
                 onClick={() =>
                   dispatchCommand({ type: "remove-group", groupId: group.id })
                 }
               >
-                <X size={13} aria-hidden="true" />
-              </button>
-            </span>
+                {t("common.delete")}
+              </Button>
+            </div>
           ))}
         </div>
         <div className="mt-2.5 flex items-center gap-1.5">
@@ -317,45 +447,162 @@ export function SettingsPageClient() {
       </section>
 
       <section className="mt-9">
-        <SectionCaption>{t("settings.connectorsTitle")}</SectionCaption>
-        <p className="mt-1 text-xs text-muted">
-          {t("settings.connectorsHint")}
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {worldview.connectors.map((connector) => (
-            <span
-              key={connector}
-              className="flex items-center gap-1.5 rounded-full bg-hover px-3.5 py-1.5 text-sm"
+        <SectionCaption>{t("settings.placesTitle")}</SectionCaption>
+        <div className="mt-2">
+          {worldview.places.map((place) => (
+            <div
+              key={place.id}
+              className="flex flex-col gap-1.5 border-b border-line py-2"
             >
-              {connector}
-              <button
-                aria-label={`${connector} ✕`}
-                className="text-muted hover:text-danger"
-                onClick={() =>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  className="w-40 shrink-0"
+                  value={place.name}
+                  placeholder={t("settings.placeNamePlaceholder")}
+                  onChange={(event) =>
+                    dispatchCommand({
+                      type: "rename-place",
+                      placeId: place.id,
+                      name: event.target.value,
+                      locale: worldview.primaryLocale,
+                    })
+                  }
+                />
+                <Input
+                  className="w-32 shrink-0"
+                  value={place.kind}
+                  placeholder={t("settings.placeKindPlaceholder")}
+                  onChange={(event) =>
+                    dispatchCommand({
+                      type: "set-place-kind",
+                      placeId: place.id,
+                      kind: event.target.value,
+                    })
+                  }
+                />
+                <Select
+                  value={place.parentId ?? "__none__"}
+                  onValueChange={(value) =>
+                    dispatchCommand({
+                      type: "set-place-parent",
+                      placeId: place.id,
+                      parentId: value === "__none__" ? null : value,
+                    })
+                  }
+                >
+                  <SelectTrigger className="bg-hover">
+                    <SelectValue placeholder={t("settings.placeParentLabel")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">
+                      {t("settings.placeParentNone")}
+                    </SelectItem>
+                    {worldview.places
+                      .filter((candidate) => candidate.id !== place.id)
+                      .map((candidate) => (
+                        <SelectItem key={candidate.id} value={candidate.id}>
+                          {placeDisplayName(candidate, locale) || "-"}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() =>
+                    dispatchCommand({ type: "remove-place", placeId: place.id })
+                  }
+                >
+                  {t("common.delete")}
+                </Button>
+              </div>
+              <Input
+                value={place.description}
+                placeholder={t("settings.placeDescriptionPlaceholder")}
+                onChange={(event) =>
                   dispatchCommand({
-                    type: "set-connectors",
-                    connectors: worldview.connectors.filter(
-                      (existing) => existing !== connector,
-                    ),
+                    type: "set-place-description",
+                    placeId: place.id,
+                    description: event.target.value,
                   })
                 }
-              >
-                <X size={13} aria-hidden="true" />
-              </button>
-            </span>
+              />
+            </div>
           ))}
         </div>
         <div className="mt-2.5 flex items-center gap-1.5">
           <Input
             className="bg-hover"
-            placeholder={t("settings.connectorPlaceholder")}
-            value={newConnector}
-            onChange={(event) => setNewConnector(event.target.value)}
-            onKeyDown={guardedKeyDownHandler({ Enter: addConnector })}
+            placeholder={t("settings.placeNamePlaceholder")}
+            value={newPlaceName}
+            onChange={(event) => setNewPlaceName(event.target.value)}
+            onKeyDown={guardedKeyDownHandler({ Enter: addPlace })}
           />
-          <Button size="sm" onClick={addConnector}>
+          <Button size="sm" onClick={addPlace}>
             <Plus size={15} aria-hidden="true" />
-            {t("settings.addConnector")}
+            {t("settings.addPlace")}
+          </Button>
+        </div>
+      </section>
+
+      <section className="mt-9">
+        <SectionCaption>{t("settings.glossaryTitle")}</SectionCaption>
+        <div className="mt-2">
+          {worldview.glossary.map((term) => (
+            <div
+              key={term.id}
+              className="flex items-center gap-1.5 border-b border-line py-1.5"
+            >
+              <Input
+                className="w-40 shrink-0"
+                value={term.name}
+                placeholder={t("settings.glossaryNamePlaceholder")}
+                onChange={(event) =>
+                  dispatchCommand({
+                    type: "rename-glossary-term",
+                    termId: term.id,
+                    name: event.target.value,
+                    locale: worldview.primaryLocale,
+                  })
+                }
+              />
+              <Input
+                value={term.description}
+                placeholder={t("settings.glossaryDescriptionPlaceholder")}
+                onChange={(event) =>
+                  dispatchCommand({
+                    type: "set-glossary-term-description",
+                    termId: term.id,
+                    description: event.target.value,
+                  })
+                }
+              />
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() =>
+                  dispatchCommand({
+                    type: "remove-glossary-term",
+                    termId: term.id,
+                  })
+                }
+              >
+                {t("common.delete")}
+              </Button>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2.5 flex items-center gap-1.5">
+          <Input
+            className="bg-hover"
+            placeholder={t("settings.glossaryNamePlaceholder")}
+            value={newGlossaryName}
+            onChange={(event) => setNewGlossaryName(event.target.value)}
+            onKeyDown={guardedKeyDownHandler({ Enter: addGlossaryTerm })}
+          />
+          <Button size="sm" onClick={addGlossaryTerm}>
+            <Plus size={15} aria-hidden="true" />
+            {t("settings.addGlossary")}
           </Button>
         </div>
       </section>

@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>관계도 개선 시안</title>
+<style>
+  :root{
+    --ground:#fff;--ink:#1c2128;--muted:#5e6b7c;--line:#dfe4ec;--hover:#f5f7fa;
+    --accent:#3e6db5;--accent-soft:#e7eef9;--star:#d0952f;--danger:#b4533a;
+    --font:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Noto Sans KR",-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef1f5;color:var(--ink);font-family:var(--font);font-size:15px;
+    line-height:1.55;word-break:keep-all;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,p{margin:0}
+  .page{max-width:1000px;margin:0 auto;padding:28px 20px 90px}
+  .lead h1{font-size:26px;font-weight:800;letter-spacing:-.02em}
+  .lead p{margin-top:6px;color:var(--muted);max-width:72ch}
+
+  .controls{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin:20px 0 6px;
+    position:sticky;top:0;background:#eef1f5;padding:12px 0;z-index:5}
+  .seg{display:flex;gap:6px}
+  .seg .k{align-self:center;color:var(--muted);font-size:13px;margin-right:2px}
+  .seg button{border:1px solid var(--line);background:var(--ground);color:var(--ink);border-radius:999px;
+    padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
+  .seg button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+
+  .grid{display:grid;grid-template-columns:1fr;gap:18px}
+  .card{background:var(--ground);border:1px solid var(--line);border-radius:16px;padding:16px 18px;
+    box-shadow:0 10px 28px rgb(10 20 40 / .10)}
+  .card h3{font-size:16px;font-weight:800;margin-bottom:2px}
+  .card .sub{color:var(--muted);font-size:13px;margin-bottom:12px}
+  .graph{width:100%;border-radius:12px;background:var(--hover);display:block}
+  .card .fixes{margin-top:10px;font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px}
+  .card .fixes b{color:#2e7d54}
+
+  svg text{font-family:var(--font)}
+  .cur{font-size:13px;color:var(--muted);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="lead">
+    <h1>관계도 개선 시안</h1>
+    <p>이웃 수(1·3·6)를 바꿔 가며 각 안이 성숙하게 대응하는지 보세요. 현재 문제 — 세로로 붙는 배치, 노드에 겹치는 라벨, 얇은 직선, 방향 없음 — 를 곡선 엣지·방향 화살표·충돌 회피 라벨·적응형 배치로 해결합니다.</p>
+  </div>
+
+  <div class="controls">
+    <div class="seg" id="countSeg">
+      <span class="k">이웃 수</span>
+      <button data-n="1" aria-selected="false">1명</button>
+      <button data-n="3" aria-selected="true">3명</button>
+      <button data-n="6" aria-selected="true">6명</button>
+    </div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <p class="cur">참고 — 현재 구현: 라벨이 노드에 가려지고, 이웃 1명이 중심 바로 위에 세로로 붙습니다.</p>
+</div>
+
+<script>
+const CENTER = { name: "가가", color: "#d8b3bf" };
+const POOL = [
+  { name: "Meowie",   label: "집사",   dir: "out",  color: "#9db8db" },
+  { name: "호호할머니", label: "손주",   dir: "both", color: "#c9a3d6" },
+  { name: "고영희",   label: "친구",   dir: "both", color: "#9cc7a6" },
+  { name: "구구",     label: "이웃",   dir: "in",   color: "#d6c39c" },
+  { name: "뫄뫄",     label: "라이벌", dir: "out",  color: "#d69ca3" },
+  { name: "토토",     label: "동료",   dir: "both", color: "#9cc4c7" },
+];
+const NS = "http://www.w3.org/2000/svg";
+const W = 640, H = 300;
+
+function el(tag, attrs, children){
+  const node = document.createElementNS(NS, tag);
+  for (const k in attrs) node.setAttribute(k, attrs[k]);
+  (children || []).forEach(c => node.appendChild(c));
+  return node;
+}
+function personGlyph(cx, cy, r, color, ring){
+  const g = el("g", {});
+  if (ring) g.appendChild(el("circle", { cx, cy, r: r + 3, fill: "none", stroke: "var(--accent)", "stroke-width": 2 }));
+  g.appendChild(el("circle", { cx, cy, r, fill: color }));
+  g.appendChild(el("circle", { cx, cy: cy - r*0.22, r: r*0.30, fill: "#fff", "fill-opacity": .85 }));
+  g.appendChild(el("path", {
+    d: `M ${cx - r*0.42} ${cy + r*0.55} a ${r*0.42} ${r*0.42} 0 0 1 ${r*0.84} 0 z`,
+    fill: "#fff", "fill-opacity": .85
+  }));
+  return g;
+}
+function nameText(cx, y, text, bold){
+  const t = el("text", { x: cx, y, "text-anchor": "middle", "font-size": 13,
+    "font-weight": bold ? 800 : 600, fill: "var(--ink)" });
+  t.textContent = text;
+  return t;
+}
+function pillLabel(x, y, text){
+  const g = el("g", {});
+  const w = text.length * 8 + 16;
+  g.appendChild(el("rect", { x: x - w/2, y: y - 11, width: w, height: 22, rx: 11,
+    fill: "var(--ground)", stroke: "var(--line)", "stroke-width": 1 }));
+  const t = el("text", { x, y: y + 4, "text-anchor": "middle", "font-size": 12, fill: "var(--muted)" });
+  t.textContent = text;
+  g.appendChild(t);
+  return g;
+}
+function defs(){
+  const d = el("defs", {});
+  ["end","start"].forEach(pos => {
+    const m = el("marker", { id: "arrow-" + pos, viewBox: "0 0 10 10",
+      refX: pos === "end" ? 9 : 1, refY: 5, markerWidth: 6, markerHeight: 6,
+      orient: pos === "end" ? "auto" : "auto-start-reverse" });
+    m.appendChild(el("path", { d: "M 0 1 L 9 5 L 0 9 z", fill: "var(--accent)", "fill-opacity": .55 }));
+    d.appendChild(m);
+  });
+  return d;
+}
+// 노드 경계까지 줄인 시작·끝점(화살표가 원 밖에 놓이도록)
+function trim(ax, ay, bx, by, rA, rB){
+  const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1;
+  const ux = dx/len, uy = dy/len;
+  return { x1: ax + ux*rA, y1: ay + uy*rA, x2: bx - ux*rB, y2: by - uy*rB };
+}
+function edgeAttrs(dir){
+  const a = { stroke: "var(--accent)", "stroke-opacity": .38, "stroke-width": 2, fill: "none" };
+  if (dir === "out" || dir === "both") a["marker-end"] = "url(#arrow-end)";
+  if (dir === "in"  || dir === "both") a["marker-start"] = "url(#arrow-start)";
+  return a;
+}
+
+function neighbors(n){ return POOL.slice(0, n); }
+
+/* ── 시안 A: 방사형 허브 (곡선·방향·적응형) ── */
+function radialPos(count){
+  const cx = W/2, cy = H/2, rx = 235, ry = 96;
+  if (count === 1) return [{ x: cx + rx*Math.cos(-0.6), y: cy + ry*Math.sin(-0.6) }];
+  const out = [];
+  for (let i = 0; i < count; i++){
+    const a = -Math.PI/2 + i * (2*Math.PI)/count;
+    out.push({ x: cx + rx*Math.cos(a), y: cy + ry*Math.sin(a) });
+  }
+  return out;
+}
+function renderRadial(count){
+  const svg = el("svg", { class: "graph", viewBox: `0 0 ${W} ${H}` });
+  svg.appendChild(defs());
+  const cx = W/2, cy = H/2, hubR = 24, nR = 19;
+  const list = neighbors(count), pos = radialPos(count);
+  const edges = el("g", {}), labels = el("g", {}), nodes = el("g", {});
+  list.forEach((nb, i) => {
+    const p = pos[i];
+    const t = trim(cx, cy, p.x, p.y, hubR + 4, nR + 8);
+    // 살짝 바깥으로 휜 곡선(control point를 수직 오프셋)
+    const mx = (t.x1 + t.x2)/2, my = (t.y1 + t.y2)/2;
+    const dx = t.x2 - t.x1, dy = t.y2 - t.y1, len = Math.hypot(dx,dy)||1;
+    const perpX = -dy/len, perpY = dx/len, bow = 14;
+    const cxp = mx + perpX*bow, cyp = my + perpY*bow;
+    edges.appendChild(el("path", Object.assign({ d: `M ${t.x1} ${t.y1} Q ${cxp} ${cyp} ${t.x2} ${t.y2}` }, edgeAttrs(nb.dir))));
+    // 라벨: 곡선 정점 부근(노드에서 떨어짐)
+    labels.appendChild(pillLabel(mx + perpX*bow, my + perpY*bow, nb.label));
+    nodes.appendChild(personGlyph(p.x, p.y, nR, nb.color, false));
+    nodes.appendChild(nameText(p.x, p.y + nR + 15, nb.name, false));
+  });
+  svg.appendChild(edges); svg.appendChild(labels);
+  svg.appendChild(personGlyph(cx, cy, hubR, CENTER.color, true));
+  svg.appendChild(nameText(cx, cy + hubR + 16, CENTER.name, true));
+  svg.appendChild(nodes);
+  return svg;
+}
+
+/* ── 시안 B: 수평 팬아웃 (허브 좌측, 이웃 우측 정렬) ── */
+function renderFan(count){
+  const svg = el("svg", { class: "graph", viewBox: `0 0 ${W} ${H}` });
+  svg.appendChild(defs());
+  const hubX = 90, hubY = H/2, hubR = 24, nR = 18, nx = W - 150;
+  const list = neighbors(count);
+  const top = 46, bottom = H - 46;
+  const edges = el("g", {}), labels = el("g", {}), nodes = el("g", {});
+  list.forEach((nb, i) => {
+    const y = count === 1 ? hubY : top + (bottom - top) * i / (count - 1);
+    const t = trim(hubX, hubY, nx, y, hubR + 4, nR + 8);
+    const cxMid = (t.x1 + t.x2)/2;
+    edges.appendChild(el("path", Object.assign({
+      d: `M ${t.x1} ${t.y1} C ${cxMid} ${t.y1}, ${cxMid} ${t.y2}, ${t.x2} ${t.y2}` }, edgeAttrs(nb.dir))));
+    labels.appendChild(pillLabel(cxMid, (t.y1 + t.y2)/2 - 12, nb.label));
+    nodes.appendChild(personGlyph(nx, y, nR, nb.color, false));
+    const nm = el("text", { x: nx + nR + 10, y: y + 4, "text-anchor": "start",
+      "font-size": 13, "font-weight": 600, fill: "var(--ink)" });
+    nm.textContent = nb.name; nodes.appendChild(nm);
+  });
+  svg.appendChild(edges); svg.appendChild(labels);
+  svg.appendChild(personGlyph(hubX, hubY, hubR, CENTER.color, true));
+  svg.appendChild(nameText(hubX, hubY + hubR + 16, CENTER.name, true));
+  svg.appendChild(nodes);
+  return svg;
+}
+
+/* ── 시안 C: 상단 반원 아크 (허브 하단 중앙) ── */
+function renderArc(count){
+  const svg = el("svg", { class: "graph", viewBox: `0 0 ${W} ${H}` });
+  svg.appendChild(defs());
+  const cx = W/2, cy = H - 66, hubR = 24, nR = 18;
+  const list = neighbors(count);
+  const rx = 250, ry = 150;
+  const edges = el("g", {}), labels = el("g", {}), nodes = el("g", {});
+  list.forEach((nb, i) => {
+    // 상단 반원(180°~360°)에 고르게
+    const a = count === 1 ? -Math.PI/2
+      : -Math.PI + (i + 0.5) * Math.PI / count;
+    const x = cx + rx*Math.cos(a), y = cy + ry*Math.sin(a);
+    const t = trim(cx, cy, x, y, hubR + 4, nR + 8);
+    edges.appendChild(el("path", Object.assign({ d: `M ${t.x1} ${t.y1} L ${t.x2} ${t.y2}` }, edgeAttrs(nb.dir))));
+    const mx = (t.x1 + t.x2)/2, my = (t.y1 + t.y2)/2;
+    labels.appendChild(pillLabel(mx, my, nb.label));
+    nodes.appendChild(personGlyph(x, y, nR, nb.color, false));
+    nodes.appendChild(nameText(x, y - nR - 8, nb.name, false));
+  });
+  svg.appendChild(edges); svg.appendChild(labels);
+  svg.appendChild(personGlyph(cx, cy, hubR, CENTER.color, true));
+  svg.appendChild(nameText(cx, cy + hubR + 16, CENTER.name, true));
+  svg.appendChild(nodes);
+  return svg;
+}
+
+const VARIANTS = [
+  { title: "A · 방사형 허브 (곡선·방향)", sub: "중심 고정, 이웃을 타원 궤도에 균등 분포. 곡선 엣지 + 방향 화살표.",
+    fixes: "적응형 반지름 · 라벨 곡선 정점에 분리 · 방향 화살표(↔ 상호)", render: renderRadial },
+  { title: "B · 수평 팬아웃", sub: "허브를 왼쪽에, 이웃을 오른쪽 열로 부채꼴. 이름을 노드 옆에 붙여 라벨과 안 겹침.",
+    fixes: "충돌 0 · 이웃 많아도 세로로 확장 · 넓은 박스에 최적", render: renderFan },
+  { title: "C · 상단 반원 아크", sub: "허브를 하단 중앙에 두고 이웃을 위쪽 반원에. 프로필 위젯다운 안정적 구도.",
+    fixes: "세로 스택 없음 · 이름을 노드 위로 · 반원 균등 분포", render: renderArc },
+];
+
+let selected = new Set(["3", "6"]);
+const grid = document.getElementById("grid");
+
+function draw(){
+  grid.innerHTML = "";
+  VARIANTS.forEach(v => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<h3>${v.title}</h3><div class="sub">${v.sub}</div>`;
+    [...selected].sort().forEach(n => card.appendChild(v.render(Number(n))));
+    const fixes = document.createElement("div");
+    fixes.className = "fixes";
+    fixes.innerHTML = "<b>개선</b> " + v.fixes;
+    card.appendChild(fixes);
+    grid.appendChild(card);
+  });
+}
+
+document.querySelectorAll("#countSeg button").forEach(b => {
+  b.addEventListener("click", () => {
+    const n = b.dataset.n;
+    if (selected.has(n)) { if (selected.size > 1) selected.delete(n); }
+    else selected.add(n);
+    b.setAttribute("aria-selected", selected.has(n));
+    draw();
+  });
+});
+draw();
+</script>
+</body>
+</html>
