@@ -303,8 +303,16 @@ export const en = {
     kindImprove: "Improved",
     kindFix: "Fixed",
     entryText: {
+      "v0-2-rebrand":
+        "We're now Sharpen. What began as a character organizer has grown into a home for your whole creative world.",
+      "v0-2-lore-entities":
+        "Added races, items, and a glossary — organize your world's lore well beyond characters.",
+      "v0-2-wiki-ia":
+        "A wiki-style overview home and a tree sidebar reshape how you navigate.",
+      "v0-2-reorder":
+        "Reorder the sections on a detail page just the way you want.",
       "v0-1-launch":
-        "Sharpen preview is here. Organize your creative world in one place.",
+        "The preview is here. Organize your characters by world.",
       "v0-1-customization":
         "Define your own profile fields, card background colors, and character palettes.",
       "v0-1-multilingual": "Korean, English, and Japanese are supported.",
